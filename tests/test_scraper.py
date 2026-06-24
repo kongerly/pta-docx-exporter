@@ -15,15 +15,26 @@ from ui.app import PTAExporterApp
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-REAL_HTML_SAMPLES = Path(__file__).resolve().parent.parent / "private" / "raw_pta_html"
+REAL_HTML_SAMPLE_DIRS = (
+    Path(__file__).resolve().parent.parent / "1234html",
+    Path(__file__).resolve().parent.parent / "private" / "raw_pta_html",
+)
+
+
+def resolve_real_html_sample_path(filename: str) -> Path | None:
+    for directory in REAL_HTML_SAMPLE_DIRS:
+        path = directory / filename
+        if path.exists():
+            return path
+    return None
 
 
 def read_real_html_sample(filename: str) -> str:
-    path = REAL_HTML_SAMPLES / filename
-    if not path.exists():
+    path = resolve_real_html_sample_path(filename)
+    if path is None:
         raise unittest.SkipTest(
             "Local PTA raw HTML samples are not available. "
-            "Put 1.html-4.html under private/raw_pta_html/ to enable these tests."
+            "Put 1.html-4.html under 1234html/ to enable these tests."
         )
     return path.read_text(encoding="utf-8")
 
