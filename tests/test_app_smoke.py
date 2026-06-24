@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from app_text import UiText
-from models import ExportSourceSummary, ProblemSetSummary
+from models import ExportResult, ExportSourceSummary, ExportSummary, ExportWarning, ProblemSetSummary
 from ui.app import PTAExporterApp
 
 
@@ -119,6 +119,42 @@ class AppSmokeTests(unittest.TestCase):
             self.assertIn("导出项预览：", summary)
             self.assertIn("1. 题目集一", summary)
             self.assertIn("2. 题目集二", summary)
+            app.scraper.shutdown()
+        finally:
+            root.destroy()
+
+    def test_export_warning_details_are_grouped_by_category(self) -> None:
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            app = PTAExporterApp(root)
+            result = ExportResult(
+                output_path="D:/exports/out.docx",
+                warnings=[
+                    "题目集《A》可能漏题：预期 3 题，实际抓到 2 题。",
+                    "题目《B》页面暂不可用：用户不存在",
+                    "题目《C》的图片下载失败：timeout",
+                ],
+                warning_details=[
+                    ExportWarning(code="missing_problem_total", category="problem_missing", message="题目集《A》可能漏题：预期 3 题，实际抓到 2 题。"),
+                    ExportWarning(code="page_unavailable", category="page_unavailable", message="题目《B》页面暂不可用：用户不存在"),
+                    ExportWarning(code="image_download_failed", category="image_asset", message="题目《C》的图片下载失败：timeout"),
+                ],
+                summary=ExportSummary(
+                    warning_count=3,
+                    missing_problem_warning_count=1,
+                    page_warning_count=1,
+                    image_warning_count=1,
+                ),
+            )
+
+            category_lines = app._build_warning_category_lines(result)
+            detail_text = app._build_warning_examples_text(result.warning_details)
+
+            self.assertEqual(["漏题 1 条", "页面异常 1 条", "图片异常 1 条"], category_lines)
+            self.assertIn("漏题：", detail_text)
+            self.assertIn("页面异常：", detail_text)
+            self.assertIn("图片异常：", detail_text)
             app.scraper.shutdown()
         finally:
             root.destroy()

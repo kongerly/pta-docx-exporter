@@ -415,8 +415,52 @@ class UiText:
         return "完整性警告：" + "；".join(warnings[:2])
 
     @staticmethod
-    def export_warning_details(dialog_message: str, warning_text: str) -> str:
-        return f"{dialog_message}\n\n以下导出项可能没有抓全：\n{warning_text}"
+    def warning_category_label(category: str) -> str:
+        mapping = {
+            "problem_missing": "漏题",
+            "page_unavailable": "页面异常",
+            "image_asset": "图片异常",
+            "content_mojibake": "乱码修复提示",
+        }
+        return mapping.get(category, "其他提醒")
+
+    @staticmethod
+    def warning_banner_summary(category_lines: list[str]) -> str:
+        if not category_lines:
+            return UiText.NO_WARNING
+        return "当前有完整性警告：" + "；".join(category_lines[:3])
+
+    @staticmethod
+    def warning_banner_inline_summary(category_lines: list[str]) -> str:
+        if not category_lines:
+            return UiText.NO_WARNING
+        return "完整性警告：" + "；".join(category_lines[:3])
+
+    @staticmethod
+    def export_warning_category_lines(
+        missing_problem_warning_count: int,
+        page_warning_count: int,
+        image_warning_count: int,
+        content_warning_count: int,
+    ) -> list[str]:
+        lines: list[str] = []
+        if missing_problem_warning_count:
+            lines.append(f"漏题 {missing_problem_warning_count} 条")
+        if page_warning_count:
+            lines.append(f"页面异常 {page_warning_count} 条")
+        if image_warning_count:
+            lines.append(f"图片异常 {image_warning_count} 条")
+        if content_warning_count:
+            lines.append(f"乱码修复提示 {content_warning_count} 条")
+        return lines
+
+    @staticmethod
+    def export_warning_details(dialog_message: str, category_summary: str, warning_text: str) -> str:
+        return (
+            f"{dialog_message}\n\n"
+            f"告警分类汇总：\n{category_summary}\n\n"
+            f"代表性告警：\n{warning_text}"
+        )
 
     @staticmethod
     def export_result_summary_text(lines: list[str]) -> str:

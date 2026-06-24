@@ -11,7 +11,7 @@ from typing import Any
 from app_meta import build_window_title
 from app_text import UiText
 from config import AppConfig
-from models import ExportResult, ExportSourceSummary, ProblemSetSummary
+from models import ExportResult, ExportSourceSummary, ExportWarning, ProblemSetSummary
 from pta.scraper import PTAScraper
 
 
@@ -485,13 +485,16 @@ class PTAExporterApp:
         self._set_progress(100, progress_message, log_message=False)
         self._log(progress_message)
         if result.warnings:
-            warning_text = "\n".join(result.warnings[:8])
-            if len(result.warnings) > 8:
-                warning_text += f"\n{UiText.more_warnings(len(result.warnings) - 8)}"
-            self.warning_text_var.set(UiText.warning_banner(result.warnings))
+            category_lines = self._build_warning_category_lines(result)
+            warning_text = self._build_warning_examples_text(result.warning_details)
+            self.warning_text_var.set(UiText.warning_banner_summary(category_lines))
             messagebox.showwarning(
                 UiText.DIALOG_EXPORT_COMPLETE_WITH_WARNING,
-                UiText.export_warning_details(dialog_message, warning_text),
+                UiText.export_warning_details(
+                    dialog_message,
+                    "\n".join(category_lines),
+                    warning_text,
+                ),
             )
             self._maybe_open_output_dir(output_path)
             return
@@ -513,6 +516,49 @@ class PTAExporterApp:
             summary.content_warning_count,
         )
         return UiText.export_result_summary_text(lines)
+
+    def _build_warning_category_lines(self, result: ExportResult) -> list[str]:
+        summary = result.summary
+        return UiText.export_warning_category_lines(
+            summary.missing_problem_warning_count,
+            summary.page_warning_count,
+            summary.image_warning_count,
+            summary.content_warning_count,
+        )
+
+    def _build_warning_examples_text(self, warning_details: list[ExportWarning]) -> str:
+        if not warning_details:
+            return "（无具体告警）"
+
+        grouped: dict[str, list[str]] = {}
+        for warning in warning_details:
+            grouped.setdefault(warning.category, [])
+            if warning.message not in grouped[warning.category]:
+                grouped[warning.category].append(warning.message)
+
+        ordered_categories = [
+            "problem_missing",
+            "page_unavailable",
+            "image_asset",
+            "content_mojibake",
+        ]
+        lines: list[str] = []
+        for category in ordered_categories:
+            messages = grouped.get(category, [])
+            if not messages:
+                continue
+            lines.append(f"{UiText.warning_category_label(category)}：")
+            lines.extend(messages[:2])
+            if len(messages) > 2:
+                lines.append(UiText.more_warnings(len(messages) - 2))
+        for category, messages in grouped.items():
+            if category in ordered_categories or not messages:
+                continue
+            lines.append(f"{UiText.warning_category_label(category)}：")
+            lines.extend(messages[:2])
+            if len(messages) > 2:
+                lines.append(UiText.more_warnings(len(messages) - 2))
+        return "\n".join(lines)
 
     def _maybe_open_output_dir(self, output_path: Path) -> None:
         target_dir = output_path if output_path.is_dir() else output_path.parent
