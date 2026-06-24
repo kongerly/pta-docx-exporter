@@ -348,11 +348,15 @@ class PTAExporterApp:
         return messagebox.askokcancel(UiText.DIALOG_CONFIRM_EXPORT, self._build_export_request_summary(output_dir, export_mode))
 
     def _build_export_request_summary(self, output_dir: Path, export_mode: str) -> str:
-        return UiText.export_request_summary(
+        queue_labels = [item.queue_label() for item in self.export_queue]
+        return UiText.export_request_summary_detailed(
             len(self.export_queue),
             UiText.export_mode_label(export_mode),
             UiText.image_mode_label(self.embed_images_var.get()),
             str(output_dir),
+            self.current_account_var.get().strip() or UiText.UNKNOWN_ACCOUNT,
+            self.source_var.get().strip() or UiText.source_label(""),
+            UiText.export_queue_preview(queue_labels),
         )
 
     def _update_export_mode_ui(self) -> None:

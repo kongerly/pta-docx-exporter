@@ -488,6 +488,35 @@ class UiText:
         )
 
     @staticmethod
+    def export_request_summary_detailed(
+        item_count: int,
+        mode_label: str,
+        image_label: str,
+        output_dir: str,
+        account_label: str,
+        source_label: str,
+        queue_preview: str,
+    ) -> str:
+        return (
+            f"将导出 {item_count} 个项目。\n"
+            f"当前账号：{account_label}\n"
+            f"抓取来源：{source_label}\n"
+            f"导出方式：{mode_label}\n"
+            f"图片处理：{image_label}\n"
+            f"输出位置：{output_dir}\n"
+            f"导出项预览：\n{queue_preview}"
+        )
+
+    @staticmethod
+    def export_queue_preview(labels: list[str], *, max_items: int = 6) -> str:
+        if not labels:
+            return "（当前没有可导出的项目）"
+        lines = [f"{index}. {label}" for index, label in enumerate(labels[:max_items], start=1)]
+        if len(labels) > max_items:
+            lines.append(f"... 还有 {len(labels) - max_items} 个导出项")
+        return "\n".join(lines)
+
+    @staticmethod
     def export_mode_label(export_mode: str) -> str:
         return UiText.EXPORT_MODE_MERGED if export_mode == "merged" else "每个导出项单独生成 Word"
 

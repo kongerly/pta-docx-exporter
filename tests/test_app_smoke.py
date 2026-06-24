@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tkinter as tk
 import unittest
+from pathlib import Path
 
 from app_text import UiText
 from models import ExportSourceSummary, ProblemSetSummary
@@ -88,6 +89,36 @@ class AppSmokeTests(unittest.TestCase):
             message = app._format_error_message(RuntimeError("未发现可导出的题型：网络课程。可能是 PTA 页面结构已变化。"))
             self.assertIn("页面结构变化导致抓取失败", message)
             self.assertIn("请先确认当前页面已经正常打开", message)
+            app.scraper.shutdown()
+        finally:
+            root.destroy()
+
+    def test_export_request_summary_includes_account_source_and_queue_preview(self) -> None:
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            app = PTAExporterApp(root)
+            app._apply_auth_state(
+                {
+                    "authenticated": True,
+                    "accountId": "demo-user",
+                    "displayName": "Demo User",
+                }
+            )
+            first = ProblemSetSummary(id="set-1", title="题目集一", url="https://pintia.cn/problem-sets/set-1/overview")
+            second = ProblemSetSummary(id="set-2", title="题目集二", url="https://pintia.cn/problem-sets/set-2/overview")
+            app.export_queue = [
+                ExportSourceSummary.from_problem_set(first),
+                ExportSourceSummary.from_problem_set(second),
+            ]
+
+            summary = app._build_export_request_summary(Path("D:/exports"), "separate")
+
+            self.assertIn("当前账号：Demo User (demo-user)", summary)
+            self.assertIn("抓取来源：入口：", summary)
+            self.assertIn("导出项预览：", summary)
+            self.assertIn("1. 题目集一", summary)
+            self.assertIn("2. 题目集二", summary)
             app.scraper.shutdown()
         finally:
             root.destroy()
