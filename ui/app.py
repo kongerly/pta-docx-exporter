@@ -54,9 +54,11 @@ class PTAExporterApp:
         self.export_summary_var = tk.StringVar(value=UiText.NO_EXPORT_YET)
 
         self._build_layout()
+        self.start_url_var.trace_add("write", lambda *_args: self._sync_source_label())
         self.export_mode_var.trace_add("write", lambda *_args: self._update_export_mode_ui())
         self._update_export_mode_ui()
         self._sync_source_label()
+        self._refresh_ui_state()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_layout(self) -> None:
@@ -67,7 +69,8 @@ class PTAExporterApp:
         top.pack(fill=tk.X)
 
         ttk.Label(top, text=UiText.LABEL_START_URL).grid(row=0, column=0, sticky=tk.W, padx=(0, 8), pady=4)
-        ttk.Entry(top, textvariable=self.start_url_var, width=76).grid(row=0, column=1, sticky=tk.EW, pady=4)
+        self.start_url_entry = ttk.Entry(top, textvariable=self.start_url_var, width=76)
+        self.start_url_entry.grid(row=0, column=1, sticky=tk.EW, pady=4)
 
         ttk.Label(top, text=UiText.LABEL_OUTPUT_DIR).grid(row=1, column=0, sticky=tk.W, padx=(0, 8), pady=4)
         self.output_dir_entry = ttk.Entry(top, textvariable=self.output_dir_var, width=76)
@@ -77,7 +80,8 @@ class PTAExporterApp:
         self.output_dir_hint_label = ttk.Label(top, textvariable=self.output_dir_hint_var, foreground="#666666")
         self.output_dir_hint_label.grid(row=2, column=1, sticky=tk.W, pady=(0, 4))
 
-        ttk.Checkbutton(top, text=UiText.LABEL_EMBED_IMAGES, variable=self.embed_images_var).grid(
+        self.embed_images_checkbutton = ttk.Checkbutton(top, text=UiText.LABEL_EMBED_IMAGES, variable=self.embed_images_var)
+        self.embed_images_checkbutton.grid(
             row=3,
             column=1,
             sticky=tk.W,
@@ -87,18 +91,20 @@ class PTAExporterApp:
         ttk.Label(top, text=UiText.LABEL_EXPORT_MODE).grid(row=4, column=0, sticky=tk.W, padx=(0, 8), pady=4)
         export_mode_frame = ttk.Frame(top)
         export_mode_frame.grid(row=4, column=1, sticky=tk.W, pady=4)
-        ttk.Radiobutton(
+        self.export_mode_merged_button = ttk.Radiobutton(
             export_mode_frame,
             text=UiText.EXPORT_MODE_MERGED,
             variable=self.export_mode_var,
             value="merged",
-        ).pack(side=tk.LEFT)
-        ttk.Radiobutton(
+        )
+        self.export_mode_merged_button.pack(side=tk.LEFT)
+        self.export_mode_separate_button = ttk.Radiobutton(
             export_mode_frame,
             text=UiText.EXPORT_MODE_SEPARATE,
             variable=self.export_mode_var,
             value="separate",
-        ).pack(side=tk.LEFT, padx=(16, 0))
+        )
+        self.export_mode_separate_button.pack(side=tk.LEFT, padx=(16, 0))
         ttk.Label(top, text=UiText.VERSION_LABEL, foreground="#666666").grid(
             row=5,
             column=1,
@@ -178,29 +184,34 @@ class PTAExporterApp:
         available_tree_scroll_x.grid(row=1, column=0, sticky="ew")
         self.problem_set_tree.bind("<Double-Button-1>", lambda _event: self._add_selected_problem_sets())
         self.problem_set_tree.bind("<<TreeviewOpen>>", self._handle_problem_set_tree_open)
+        self.problem_set_tree.bind("<<TreeviewSelect>>", lambda _event: self._refresh_ui_state())
 
         control_frame = ttk.Frame(lists_row, padding=(12, 36, 12, 12))
         control_frame.grid(row=0, column=1, sticky="ns")
         control_frame.columnconfigure(0, weight=1)
-        ttk.Button(control_frame, text=UiText.BUTTON_ADD_TO_QUEUE, command=self._add_selected_problem_sets).grid(
+        self.add_to_queue_button = ttk.Button(control_frame, text=UiText.BUTTON_ADD_TO_QUEUE, command=self._add_selected_problem_sets)
+        self.add_to_queue_button.grid(
             row=0,
             column=0,
             sticky="ew",
             pady=(0, 8),
         )
-        ttk.Button(control_frame, text=UiText.BUTTON_REMOVE_FROM_QUEUE, command=self._remove_selected_export_items).grid(
+        self.remove_from_queue_button = ttk.Button(control_frame, text=UiText.BUTTON_REMOVE_FROM_QUEUE, command=self._remove_selected_export_items)
+        self.remove_from_queue_button.grid(
             row=1,
             column=0,
             sticky="ew",
             pady=(0, 16),
         )
-        ttk.Button(control_frame, text=UiText.BUTTON_MOVE_UP, command=lambda: self._move_export_item(-1)).grid(
+        self.move_up_button = ttk.Button(control_frame, text=UiText.BUTTON_MOVE_UP, command=lambda: self._move_export_item(-1))
+        self.move_up_button.grid(
             row=2,
             column=0,
             sticky="ew",
             pady=(0, 8),
         )
-        ttk.Button(control_frame, text=UiText.BUTTON_MOVE_DOWN, command=lambda: self._move_export_item(1)).grid(
+        self.move_down_button = ttk.Button(control_frame, text=UiText.BUTTON_MOVE_DOWN, command=lambda: self._move_export_item(1))
+        self.move_down_button.grid(
             row=3,
             column=0,
             sticky="ew",
@@ -229,6 +240,7 @@ class PTAExporterApp:
         queue_scroll_y.grid(row=0, column=1, sticky="ns")
         queue_scroll_x.grid(row=1, column=0, sticky="ew")
         self.export_queue_list.bind("<Double-Button-1>", lambda _event: self._remove_selected_export_items())
+        self.export_queue_list.bind("<<ListboxSelect>>", lambda _event: self._refresh_ui_state())
 
         log_frame = ttk.LabelFrame(container, text=UiText.GROUP_LOG, padding=10)
         log_frame.pack(fill=tk.BOTH, expand=True, pady=(12, 0))
@@ -344,16 +356,15 @@ class PTAExporterApp:
         )
 
     def _update_export_mode_ui(self) -> None:
-        is_merged = self.export_mode_var.get() == "merged"
-        self.output_dir_entry.config(state="disabled" if is_merged else "normal")
-        self.output_dir_button.config(state="disabled" if is_merged else "normal")
-        if is_merged:
+        if self.export_mode_var.get() == "merged":
             self.output_dir_hint_var.set(UiText.merged_export_hint())
         else:
             self.output_dir_hint_var.set(UiText.separate_export_hint())
+        self._refresh_ui_state()
 
     def _after_login_window_opened(self, result: dict[str, Any]) -> None:
         self.login_state_var.set(UiText.WAITING_FOR_LOGIN)
+        self._refresh_ui_state()
         self._set_progress(0, UiText.login_page_opened(), log_message=False)
         self._log(result.get("message", UiText.login_page_opened_log()))
         if result.get("finalUrl"):
@@ -392,6 +403,7 @@ class PTAExporterApp:
             self._log(UiText.problem_sets_loaded_log(len(problem_sets)))
         else:
             self._log(UiText.no_problem_sets_loaded())
+        self._refresh_ui_state()
 
     def _handle_problem_set_tree_open(self, _event: tk.Event) -> None:
         item_id = self.problem_set_tree.focus()
@@ -522,11 +534,13 @@ class PTAExporterApp:
         else:
             self.current_account_var.set(display_name or account_id or UiText.UNKNOWN_ACCOUNT)
         self._sync_login_state_from_auth()
+        self._refresh_ui_state()
 
     def _clear_auth_state(self, login_state: str = UiText.NOT_LOGGED_IN) -> None:
         self.current_auth_state = None
         self.current_account_var.set(UiText.UNKNOWN_ACCOUNT)
         self.login_state_var.set(login_state)
+        self._refresh_ui_state()
 
     def _sync_login_state_from_auth(self) -> None:
         auth_state = self.current_auth_state or {}
@@ -542,6 +556,71 @@ class PTAExporterApp:
         start_url = self.start_url_var.get().strip()
         self.source_var.set(UiText.source_label(start_url))
 
+    def _has_authenticated_account(self) -> bool:
+        auth_state = self.current_auth_state or {}
+        return bool(auth_state.get("authenticated") and str(auth_state.get("accountId") or "").strip())
+
+    def _can_confirm_account(self) -> bool:
+        return self.login_state_var.get() == UiText.WAITING_FOR_LOGIN
+
+    def _refresh_ui_state(self) -> None:
+        if not hasattr(self, "login_button"):
+            return
+
+        if self.busy:
+            state = "disabled"
+            self.login_button.config(state=state)
+            self.switch_account_button.config(state=state)
+            self.confirm_account_button.config(state=state)
+            self.load_problem_sets_button.config(state=state)
+            self.export_button.config(state=state)
+            self.add_to_queue_button.config(state=state)
+            self.remove_from_queue_button.config(state=state)
+            self.move_up_button.config(state=state)
+            self.move_down_button.config(state=state)
+            self.start_url_entry.config(state=state)
+            self.output_dir_entry.config(state=state)
+            self.output_dir_button.config(state=state)
+            self.embed_images_checkbutton.config(state=state)
+            self.export_mode_merged_button.config(state=state)
+            self.export_mode_separate_button.config(state=state)
+            self.problem_set_tree.state(["disabled"])
+            self.export_queue_list.config(state=state)
+            return
+
+        can_load = self._has_authenticated_account()
+        can_confirm = self._can_confirm_account()
+        tree_selection_exists = bool(self._selected_tree_sources())
+        queue_selection = list(self.export_queue_list.curselection())
+        single_queue_selection = len(queue_selection) == 1
+        has_loaded_problem_sets = bool(self.problem_sets)
+        has_queue_items = bool(self.export_queue)
+        is_merged = self.export_mode_var.get() == "merged"
+
+        self.login_button.config(state="normal")
+        self.switch_account_button.config(state="normal")
+        self.confirm_account_button.config(state="normal" if can_confirm else "disabled")
+        self.load_problem_sets_button.config(state="normal" if can_load else "disabled")
+        self.export_button.config(state="normal" if can_load and has_queue_items else "disabled")
+        self.add_to_queue_button.config(state="normal" if has_loaded_problem_sets and tree_selection_exists else "disabled")
+        self.remove_from_queue_button.config(state="normal" if queue_selection else "disabled")
+        self.move_up_button.config(
+            state="normal" if single_queue_selection and queue_selection[0] > 0 else "disabled"
+        )
+        self.move_down_button.config(
+            state="normal"
+            if single_queue_selection and queue_selection[0] < len(self.export_queue) - 1
+            else "disabled"
+        )
+        self.start_url_entry.config(state="normal")
+        self.output_dir_entry.config(state="disabled" if is_merged else "normal")
+        self.output_dir_button.config(state="disabled" if is_merged else "normal")
+        self.embed_images_checkbutton.config(state="normal")
+        self.export_mode_merged_button.config(state="normal")
+        self.export_mode_separate_button.config(state="normal")
+        self.problem_set_tree.state(["!disabled"] if has_loaded_problem_sets else ["disabled"])
+        self.export_queue_list.config(state="normal" if has_queue_items else "disabled")
+
     def _run_async(self, status_message: str, job, callback) -> None:
         if self.busy:
             messagebox.showinfo(UiText.DIALOG_WAIT, UiText.wait_message())
@@ -553,7 +632,7 @@ class PTAExporterApp:
         self.warning_text_var.set(UiText.NO_WARNING)
         self.export_summary_var.set(UiText.EXPORT_IN_PROGRESS)
         self.status_var.set(status_message)
-        self._set_button_state("disabled")
+        self._refresh_ui_state()
         self._set_progress(0, status_message, log_message=True)
 
         def worker() -> None:
@@ -571,7 +650,7 @@ class PTAExporterApp:
 
     def _finish_async(self, result, error: Exception | None, details: str, callback) -> None:
         self.busy = False
-        self._set_button_state("normal")
+        self._refresh_ui_state()
         self.status_var.set(UiText.READY)
         if error is not None:
             friendly_error = self._format_error_message(error)
@@ -593,16 +672,6 @@ class PTAExporterApp:
         if "未检测到有效登录状态" in message or "用户不存在" in message:
             return UiText.retry_after_login(message)
         return message
-
-    def _set_button_state(self, state: str) -> None:
-        for button in (
-            self.login_button,
-            self.switch_account_button,
-            self.confirm_account_button,
-            self.load_problem_sets_button,
-            self.export_button,
-        ):
-            button.config(state=state)
 
     def _add_selected_problem_sets(self) -> None:
         sources = self._selected_tree_sources()
@@ -660,6 +729,7 @@ class PTAExporterApp:
         self._log(UiText.reordered_queue())
 
     def _refresh_export_queue_view(self, selected_index: int | None = None) -> None:
+        self.export_queue_list.config(state="normal")
         self.export_queue_list.delete(0, tk.END)
         for index, item in enumerate(self.export_queue, start=1):
             self.export_queue_list.insert(tk.END, f"{index}. {item.queue_label()}")
@@ -667,6 +737,7 @@ class PTAExporterApp:
         if selected_index is not None and 0 <= selected_index < len(self.export_queue):
             self.export_queue_list.selection_set(selected_index)
             self.export_queue_list.see(selected_index)
+        self._refresh_ui_state()
 
     def _rebuild_problem_set_tree(self, problem_sets: list[ProblemSetSummary]) -> None:
         self.problem_set_tree.delete(*self.problem_set_tree.get_children())
@@ -679,6 +750,7 @@ class PTAExporterApp:
             self.problem_tree_sources[node_id] = source
             self.problem_tree_root_nodes[item.id] = node_id
             self.problem_set_tree.insert(node_id, tk.END, text=self.TYPE_PLACEHOLDER_TEXT, open=False)
+        self._refresh_ui_state()
 
     def _selected_tree_sources(self) -> list[ExportSourceSummary]:
         sources: list[ExportSourceSummary] = []

@@ -4,10 +4,15 @@ import tkinter as tk
 import unittest
 
 from app_text import UiText
+from models import ExportSourceSummary, ProblemSetSummary
 from ui.app import PTAExporterApp
 
 
 class AppSmokeTests(unittest.TestCase):
+    @staticmethod
+    def _ttk_state(widget) -> str:
+        return "disabled" if widget.instate(["disabled"]) else "normal"
+
     def test_app_initializes_without_starting_browser(self) -> None:
         root = tk.Tk()
         root.withdraw()
@@ -15,6 +20,62 @@ class AppSmokeTests(unittest.TestCase):
             app = PTAExporterApp(root)
             self.assertEqual(UiText.READY, app.status_var.get())
             self.assertEqual(UiText.NO_EXPORT_YET, app.export_summary_var.get())
+            self.assertEqual("normal", self._ttk_state(app.login_button))
+            self.assertEqual("normal", self._ttk_state(app.switch_account_button))
+            self.assertEqual("disabled", self._ttk_state(app.confirm_account_button))
+            self.assertEqual("disabled", self._ttk_state(app.load_problem_sets_button))
+            self.assertEqual("disabled", self._ttk_state(app.export_button))
+            self.assertEqual("disabled", self._ttk_state(app.add_to_queue_button))
+            self.assertEqual("disabled", self._ttk_state(app.remove_from_queue_button))
+            self.assertEqual("disabled", self._ttk_state(app.move_up_button))
+            self.assertEqual("disabled", self._ttk_state(app.move_down_button))
+            app.scraper.shutdown()
+        finally:
+            root.destroy()
+
+    def test_buttons_follow_login_loaded_data_and_queue_state(self) -> None:
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            app = PTAExporterApp(root)
+            app._after_login_window_opened({})
+            self.assertEqual("disabled", self._ttk_state(app.load_problem_sets_button))
+            self.assertEqual("normal", self._ttk_state(app.confirm_account_button))
+
+            app._apply_auth_state(
+                {
+                    "authenticated": True,
+                    "accountId": "demo-user",
+                    "displayName": "Demo User",
+                }
+            )
+            self.assertEqual("disabled", self._ttk_state(app.confirm_account_button))
+            self.assertEqual("normal", self._ttk_state(app.load_problem_sets_button))
+
+            first = ProblemSetSummary(id="set-1", title="题目集一", url="https://pintia.cn/problem-sets/set-1/overview")
+            second = ProblemSetSummary(id="set-2", title="题目集二", url="https://pintia.cn/problem-sets/set-2/overview")
+            app._after_load_problem_sets([first, second])
+            self.assertEqual("normal", self._ttk_state(app.add_to_queue_button))
+
+            app.export_queue = [
+                ExportSourceSummary.from_problem_set(first),
+                ExportSourceSummary.from_problem_set(second),
+            ]
+            app._refresh_export_queue_view()
+            app.export_queue_list.selection_set(0)
+            root.update_idletasks()
+            app._refresh_ui_state()
+            self.assertEqual("normal", self._ttk_state(app.export_button))
+            self.assertEqual("normal", self._ttk_state(app.remove_from_queue_button))
+            self.assertEqual("disabled", self._ttk_state(app.move_up_button))
+            self.assertEqual("normal", self._ttk_state(app.move_down_button))
+
+            app.export_queue_list.selection_clear(0, tk.END)
+            app.export_queue_list.selection_set(1)
+            root.update_idletasks()
+            app._refresh_ui_state()
+            self.assertEqual("normal", self._ttk_state(app.move_up_button))
+            self.assertEqual("disabled", self._ttk_state(app.move_down_button))
             app.scraper.shutdown()
         finally:
             root.destroy()
