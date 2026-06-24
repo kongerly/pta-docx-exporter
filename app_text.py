@@ -162,6 +162,23 @@ class ScraperText:
         return f"题目《{title}》的图片写入失败：{error}"
 
 
+class SessionText:
+    BROWSER_SERVICE_PIPES_UNAVAILABLE = "浏览器桥服务的通信管道不可用。"
+    UNKNOWN_BROWSER_SERVICE_ERROR = "浏览器桥服务返回了未知错误。"
+    BROWSER_SERVICE_EXITED_UNEXPECTEDLY = "浏览器桥服务异常退出。"
+    NODE_RUNTIME_MISSING = "未找到 Playwright 浏览器桥所需的 node.exe。"
+    BROWSER_SERVICE_SCRIPT_MISSING_PREFIX = "缺少浏览器桥脚本："
+    BROWSER_MISSING = "未检测到 Microsoft Edge 或 Google Chrome。"
+
+    @staticmethod
+    def browser_service_script_missing(script_path: str) -> str:
+        return f"{SessionText.BROWSER_SERVICE_SCRIPT_MISSING_PREFIX}{script_path}"
+
+    @staticmethod
+    def decode_response_failed(line: str) -> str:
+        return f"浏览器桥服务响应解析失败：{line}"
+
+
 class UiText:
     APP_TITLE = APP_DISPLAY_NAME
     VERSION_LABEL = f"当前版本：v{APP_VERSION}"

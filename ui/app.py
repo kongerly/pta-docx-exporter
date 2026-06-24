@@ -665,9 +665,9 @@ class PTAExporterApp:
 
     def _format_error_message(self, error: Exception) -> str:
         message = str(error).strip()
-        if "Could not locate node.exe" in message:
+        if "node.exe" in message:
             return UiText.node_missing()
-        if "Could not locate Microsoft Edge or Google Chrome." in message:
+        if "Microsoft Edge" in message or "Google Chrome" in message:
             return UiText.browser_missing()
         if "未检测到有效登录状态" in message or "用户不存在" in message:
             return UiText.retry_after_login(message)

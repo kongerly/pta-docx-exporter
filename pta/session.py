@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app_text import SessionText
 from config import AppConfig, resource_root
 
 
@@ -119,7 +120,7 @@ class PTASessionManager:
         node_exe = self._resolve_node_executable()
         script_path = resource_root() / "pta" / "browser_service.js"
         if not script_path.exists():
-            raise SessionError(f"Missing browser service script: {script_path}")
+            raise SessionError(SessionText.browser_service_script_missing(str(script_path)))
 
         env = os.environ.copy()
         node_module_paths = self._resolve_node_module_paths()
@@ -148,7 +149,7 @@ class PTASessionManager:
         with self._lock:
             process = self._ensure_process()
             if process.stdin is None or process.stdout is None:
-                raise SessionError("The browser service pipes are unavailable.")
+                raise SessionError(SessionText.BROWSER_SERVICE_PIPES_UNAVAILABLE)
 
             message_id = str(uuid.uuid4())
             envelope = {"id": message_id, "command": command, "payload": payload}
@@ -164,17 +165,17 @@ class PTASessionManager:
                     try:
                         response = json.loads(line)
                     except json.JSONDecodeError as error:
-                        raise SessionError(f"Failed to decode browser service response: {line}") from error
+                        raise SessionError(SessionText.decode_response_failed(line)) from error
                     if response.get("id") != message_id:
                         continue
                     if not response.get("ok"):
-                        raise SessionError(response.get("message", "Unknown browser service error."))
+                        raise SessionError(response.get("message", SessionText.UNKNOWN_BROWSER_SERVICE_ERROR))
                     return response
 
                 if process.poll() is not None:
                     stderr = process.stderr.read().strip() if process.stderr is not None else ""
                     self._process = None
-                    raise SessionError(stderr or "The browser service exited unexpectedly.")
+                    raise SessionError(stderr or SessionText.BROWSER_SERVICE_EXITED_UNEXPECTEDLY)
 
     def _resolve_node_executable(self) -> Path:
         candidates = [
@@ -188,7 +189,7 @@ class PTASessionManager:
             path = Path(candidate)
             if path.exists():
                 return path
-        raise SessionError("Could not locate node.exe for the Playwright browser service.")
+        raise SessionError(SessionText.NODE_RUNTIME_MISSING)
 
     def _resolve_node_module_paths(self) -> list[Path]:
         candidates = [
@@ -234,4 +235,4 @@ class PTASessionManager:
             path = Path(candidate)
             if path.exists():
                 return path
-        raise SessionError("Could not locate Microsoft Edge or Google Chrome.")
+        raise SessionError(SessionText.BROWSER_MISSING)

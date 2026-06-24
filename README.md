@@ -81,6 +81,8 @@ pwsh .\build\build.ps1 `
 pwsh .\build\build.ps1 -PythonExe python -SkipRuntimeCopy
 ```
 
+构建脚本会用中文提示当前构建版本，并在缺少 `node.exe`、`node_modules` 或 Playwright 依赖时给出区分说明。
+
 ## 隐私说明
 
 - 本项目不会绕过 PTA 登录，只会复用你在本机浏览器中完成的真实登录状态。
