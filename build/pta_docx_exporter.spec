@@ -1,9 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 from pathlib import Path
+import sys
 
 
 project_root = Path(SPECPATH).resolve().parent
+sys.path.insert(0, str(project_root))
+
+from app_meta import APP_ID
+
 runtime_root = project_root / "runtime"
 datas = [(str(project_root / "pta" / "browser_service.js"), "pta")]
 
@@ -35,7 +40,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="PTADocxExporter",
+    name=APP_ID,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -50,5 +55,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="PTADocxExporter",
+    name=APP_ID,
 )

@@ -14,8 +14,8 @@ $CodexRuntimeRoot = Join-Path $HOME ".cache\codex-runtimes\codex-primary-runtime
 function Get-AppMeta {
     $script = @'
 import json
-from app_meta import APP_DISPLAY_NAME, APP_VERSION
-print(json.dumps({"display_name": APP_DISPLAY_NAME, "version": APP_VERSION}))
+from app_meta import APP_DISPLAY_NAME, APP_ID, APP_VERSION
+print(json.dumps({"app_id": APP_ID, "display_name": APP_DISPLAY_NAME, "version": APP_VERSION}))
 '@
     $raw = $script | & $PythonExe -
     return $raw | ConvertFrom-Json
@@ -145,11 +145,11 @@ finally {
     Pop-Location
 }
 
-$DistRoot = Join-Path $ProjectRoot "dist\PTADocxExporter"
+$DistRoot = Join-Path $ProjectRoot ("dist\" + $appMeta.app_id)
 $InternalRoot = Join-Path $DistRoot "_internal"
 
 Write-Host "正在校验构建产物..."
-Assert-RequiredPath (Join-Path $DistRoot "PTADocxExporter.exe") "便携版主程序"
+Assert-RequiredPath (Join-Path $DistRoot ($appMeta.app_id + ".exe")) "便携版主程序"
 Assert-RequiredPath (Join-Path $InternalRoot "pta\browser_service.js") "浏览器桥脚本"
 
 if (-not $SkipRuntimeCopy) {
