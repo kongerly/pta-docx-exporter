@@ -80,6 +80,18 @@ class AppSmokeTests(unittest.TestCase):
         finally:
             root.destroy()
 
+    def test_structure_change_error_is_rewritten_with_actionable_hint(self) -> None:
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            app = PTAExporterApp(root)
+            message = app._format_error_message(RuntimeError("未发现可导出的题型：网络课程。可能是 PTA 页面结构已变化。"))
+            self.assertIn("页面结构变化导致抓取失败", message)
+            self.assertIn("请先确认当前页面已经正常打开", message)
+            app.scraper.shutdown()
+        finally:
+            root.destroy()
+
 
 if __name__ == "__main__":
     unittest.main()

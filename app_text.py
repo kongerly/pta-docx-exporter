@@ -68,7 +68,6 @@ class ScraperText:
     LOGIN_REQUIRED = "未检测到有效登录状态，请先登录 PTA。"
     ACCOUNT_UNKNOWN = "已登录，但无法识别当前账号，请切换账号并重新登录。"
     PROBLEM_SET_LIST_LOADING = "正在加载题目集列表..."
-    PROBLEM_SET_LIST_EMPTY = "没有加载到任何题目集，请确认 PTA 已登录，并且页面已正常打开。"
     EXPORT_GENERATING = "题目抓取完成，正在生成 Word 文档..."
 
     @staticmethod
@@ -92,7 +91,17 @@ class ScraperText:
 
     @staticmethod
     def problem_types_not_found(title: str) -> str:
-        return f"未发现可导出的题型：{title}"
+        return (
+            f"未发现可导出的题型：{title}。"
+            "如果该页面本应显示题型列表，可能是 PTA 页面结构已变化，请更新样本后检查解析规则。"
+        )
+
+    @staticmethod
+    def problem_set_list_empty() -> str:
+        return (
+            "没有加载到任何题目集。请先确认 PTA 已登录、入口页面可以正常打开；"
+            "如果页面中本应显示题目集，可能是 PTA 页面结构已变化，请更新样本后检查解析规则。"
+        )
 
     @staticmethod
     def preparing_export(total_sets: int) -> str:
@@ -529,3 +538,11 @@ class UiText:
     @staticmethod
     def retry_after_login(message: str) -> str:
         return f"{message}\n\n请重新登录 PTA 后重试。"
+
+    @staticmethod
+    def retry_after_structure_change(message: str) -> str:
+        return (
+            f"{message}\n\n"
+            "请先确认当前页面已经正常打开；如果页面内容存在但程序仍无法识别，"
+            "可能是 PTA 页面结构变化导致抓取失败，请更新样本后检查解析规则。"
+        )

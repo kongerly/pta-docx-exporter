@@ -163,7 +163,7 @@ class PTAScraper:
         self._assert_snapshot_usable(snapshot)
         items = self._extract_problem_sets_from_dom_snapshot(snapshot)
         if not items:
-            raise SessionError(ScraperText.PROBLEM_SET_LIST_EMPTY)
+            raise SessionError(ScraperText.problem_set_list_empty())
         self._emit_progress(progress_callback, percent=100, message=ScraperText.problem_sets_loaded(len(items)))
         return items
 

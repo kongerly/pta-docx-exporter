@@ -119,6 +119,25 @@ class ScraperParsingTests(unittest.TestCase):
         self.assertEqual("2066431007420686336", items[0].id)
         self.assertEqual("2026-07-01 17:58", items[0].ends_at)
 
+    def test_load_problem_sets_reports_structure_change_when_page_has_no_detectable_items(self) -> None:
+        list_url = "https://pintia.cn/problem-sets/all"
+        self.scraper.session = FakeSession(
+            {
+                list_url: PageSnapshot(
+                    url=list_url,
+                    title="PTA | 程序设计类实验辅助教学平台",
+                    html="<html><body><main><div>页面正常打开，但当前解析规则未识别到题目集。</div></main></body></html>",
+                    links=[],
+                    body_text="页面正常打开，但当前解析规则未识别到题目集。",
+                )
+            }
+        )
+
+        with self.assertRaises(SessionError) as context:
+            self.scraper.load_problem_sets(target_account="demo-user")
+
+        self.assertIn("页面结构已变化", str(context.exception))
+
     def test_rejects_error_snapshot(self) -> None:
         snapshot = PageSnapshot(
             url="https://pintia.cn/problem-sets/all",
@@ -327,6 +346,36 @@ class ScraperParsingTests(unittest.TestCase):
         self.assertTrue(items[0].url.endswith("/exam/problems/type/1"))
         self.assertEqual("problem_type", items[0].source_kind)
         self.assertEqual(problem_set.id, items[0].parent_problem_set_id)
+
+    def test_load_problem_set_types_message_mentions_structure_change_when_empty(self) -> None:
+        problem_set = ProblemSetSummary(
+            id="set-empty",
+            title="空题型页面",
+            url="https://pintia.cn/problem-sets/set-empty/overview",
+        )
+        type_page_url = "https://pintia.cn/problem-sets/set-empty/exam/problems/type/1"
+        payloads: list[dict[str, object]] = []
+        self.scraper.session = FakeSession(
+            {
+                type_page_url: PageSnapshot(
+                    url=type_page_url,
+                    title="空题型页面",
+                    html="<html><body><main><div>页面已打开，但没有识别到题型入口。</div></main></body></html>",
+                    links=[],
+                    body_text="页面已打开，但没有识别到题型入口。",
+                )
+            }
+        )
+
+        items = self.scraper.load_problem_set_types(
+            problem_set,
+            target_account="demo-user",
+            progress_callback=payloads.append,
+        )
+
+        self.assertEqual([], items)
+        self.assertTrue(payloads)
+        self.assertIn("页面结构已变化", str(payloads[-1].get("message", "")))
 
     def test_export_problem_type_source_uses_type_specific_title_and_filename(self) -> None:
         type_source = ExportSourceSummary(
