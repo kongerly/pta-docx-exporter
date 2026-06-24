@@ -504,6 +504,9 @@ class PTAExporterApp:
             summary.failed_problem_total,
             summary.warning_count,
             summary.image_warning_count,
+            summary.missing_problem_warning_count,
+            summary.page_warning_count,
+            summary.content_warning_count,
         )
         return UiText.export_result_summary_text(lines)
 

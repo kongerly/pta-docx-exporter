@@ -108,6 +108,15 @@ class Problem:
 
 
 @dataclass(slots=True)
+class ExportWarning:
+    code: str
+    category: str
+    message: str
+    source_title: str = ""
+    problem_title: str = ""
+
+
+@dataclass(slots=True)
 class Assignment:
     id: str
     title: str
@@ -116,6 +125,7 @@ class Assignment:
     expected_problem_total: int = 0
     parsed_problem_total: int = 0
     warnings: list[str] = field(default_factory=list)
+    warning_details: list[ExportWarning] = field(default_factory=list)
     problems: list[Problem] = field(default_factory=list)
 
 
@@ -125,6 +135,7 @@ class ExportResult:
     output_paths: list[str] = field(default_factory=list)
     export_mode: str = "merged"
     warnings: list[str] = field(default_factory=list)
+    warning_details: list[ExportWarning] = field(default_factory=list)
     summary: "ExportSummary" = field(default_factory=lambda: ExportSummary())
 
 
@@ -136,6 +147,10 @@ class ExportSummary:
     failed_problem_total: int = 0
     warning_count: int = 0
     image_warning_count: int = 0
+    missing_problem_warning_count: int = 0
+    page_warning_count: int = 0
+    content_warning_count: int = 0
+    warning_category_counts: dict[str, int] = field(default_factory=dict)
 
 
 def model_to_dict(value: Any) -> Any:
@@ -144,6 +159,8 @@ def model_to_dict(value: Any) -> Any:
         for key in value.__dataclass_fields__:
             data[key] = model_to_dict(getattr(value, key))
         return data
+    if isinstance(value, dict):
+        return {key: model_to_dict(item) for key, item in value.items()}
     if isinstance(value, list):
         return [model_to_dict(item) for item in value]
     return value

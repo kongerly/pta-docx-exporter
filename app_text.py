@@ -53,6 +53,16 @@ class DocxText:
 class ScraperText:
     DEFAULT_SET_NAME = "PTA题目集"
     UNTITLED_PROBLEM = "未命名题目"
+    WARNING_CATEGORY_CONTENT = "content_mojibake"
+    WARNING_CATEGORY_PAGE = "page_unavailable"
+    WARNING_CATEGORY_PROBLEM = "problem_missing"
+    WARNING_CATEGORY_IMAGE = "image_asset"
+    WARNING_CODE_CONTENT_REPAIRED = "content_mojibake_detected"
+    WARNING_CODE_PAGE_UNAVAILABLE = "page_unavailable"
+    WARNING_CODE_PROBLEM_FETCH_FAILED = "problem_fetch_failed"
+    WARNING_CODE_MISSING_PROBLEM_TOTAL = "missing_problem_total"
+    WARNING_CODE_IMAGE_DOWNLOAD_FAILED = "image_download_failed"
+    WARNING_CODE_IMAGE_WRITE_FAILED = "image_write_failed"
 
     TARGET_ACCOUNT_REQUIRED = "请先填写目标 PTA 账号。"
     LOGIN_REQUIRED = "未检测到有效登录状态，请先登录 PTA。"
@@ -152,6 +162,14 @@ class ScraperText:
     @staticmethod
     def unsupported_export_mode(export_mode: str) -> str:
         return f"不支持的导出模式：{export_mode}"
+
+    @staticmethod
+    def content_mojibake_warning(title: str) -> str:
+        return f"题目集《{title}》页面疑似存在乱码，程序已尝试自动修复，请导出后抽查内容。"
+
+    @staticmethod
+    def page_unavailable_warning(title: str, error: Exception) -> str:
+        return f"题目《{title}》页面暂不可用：{error}"
 
     @staticmethod
     def image_download_failed(title: str, error: Exception) -> str:
@@ -330,6 +348,9 @@ class UiText:
         failed_total: int,
         warning_count: int,
         image_warning_count: int,
+        missing_problem_warning_count: int,
+        page_warning_count: int,
+        content_warning_count: int,
     ) -> list[str]:
         effective_total = expected_total or parsed_total
         lines = [
@@ -338,8 +359,14 @@ class UiText:
             f"缺失：{failed_total}",
             f"警告：{warning_count}",
         ]
+        if missing_problem_warning_count:
+            lines.append(f"漏题告警：{missing_problem_warning_count}")
+        if page_warning_count:
+            lines.append(f"页面告警：{page_warning_count}")
         if image_warning_count:
             lines.append(f"图片警告：{image_warning_count}")
+        if content_warning_count:
+            lines.append(f"乱码修复提示：{content_warning_count}")
         return lines
 
     @staticmethod

@@ -528,9 +528,11 @@ class ScraperParsingTests(unittest.TestCase):
         self.assertTrue(Path(result.output_path).exists())
         self.assertTrue(any("可能漏题" in warning for warning in result.warnings))
         self.assertTrue(any("题目《题目二》抓取失败" in warning for warning in result.warnings))
+        self.assertTrue(any(item.category == "problem_missing" for item in result.warning_details))
         self.assertEqual(1, result.summary.failed_problem_total)
         self.assertEqual(2, result.summary.expected_problem_total)
         self.assertEqual(1, result.summary.parsed_problem_total)
+        self.assertEqual(2, result.summary.missing_problem_warning_count)
 
     def test_export_records_image_download_warning_in_summary(self) -> None:
         class ImageFailingSession(FakeSession):
@@ -564,8 +566,90 @@ class ScraperParsingTests(unittest.TestCase):
         )
 
         self.assertTrue(any("图片下载失败" in warning for warning in result.warnings))
+        self.assertTrue(any(item.code == "image_download_failed" for item in result.warning_details))
         self.assertEqual(1, result.summary.image_warning_count)
         self.assertEqual(1, result.summary.warning_count)
+
+    def test_export_classifies_page_unavailable_warning(self) -> None:
+        base_url = "https://pintia.cn/problem-sets/demo-page"
+        exam_url = f"{base_url}/exam/problems/type"
+        problem_1 = f"{base_url}/problems/p1"
+        problem_2 = f"{base_url}/problems/p2"
+        self.scraper.session = FakeSession(
+            {
+                exam_url: PageSnapshot(
+                    url=exam_url,
+                    title="题目列表",
+                    html=f"""
+                    <html><body>
+                      <a href="{problem_1}">题目一</a>
+                      <a href="{problem_2}">题目二</a>
+                    </body></html>
+                    """,
+                    links=[],
+                    problem_count=2,
+                ),
+                problem_1: PageSnapshot(
+                    url=problem_1,
+                    title="题目一",
+                    html="""
+                    <html><body><main>
+                      <h1>题目一</h1>
+                      <h2>题目描述</h2>
+                      <p>完整内容。</p>
+                    </main></body></html>
+                    """,
+                    links=[],
+                ),
+                problem_2: PageSnapshot(
+                    url=problem_2,
+                    title="错误页面",
+                    html="<html><body>用户不存在，请重新登录</body></html>",
+                    links=[],
+                    body_text="错误信息 用户不存在 重新加载 登录",
+                ),
+            }
+        )
+
+        result = self.scraper.export_problem_sets(
+            [ProblemSetSummary(id="demo-page", title="页面异常题目集", url=base_url)],
+            output_dir=Path(self.temp_dir.name) / "exports",
+            embed_images=False,
+            target_account="demo-user",
+        )
+
+        self.assertTrue(any(item.category == "page_unavailable" for item in result.warning_details))
+        self.assertEqual(1, result.summary.page_warning_count)
+
+    def test_export_records_mojibake_repair_warning(self) -> None:
+        problem_url = "https://pintia.cn/problem-sets/demo-mojibake/problems/p1"
+        self.scraper.session = FakeSession(
+            {
+                problem_url: PageSnapshot(
+                    url=problem_url,
+                    title="棰樼洰椤甸潰",
+                    html="""
+                    <html><body><main>
+                      <h1>棰樼洰</h1>
+                      <h2>题目描述</h2>
+                      <p>璇疯緭鍑� Hello PTA</p>
+                    </main></body></html>
+                    """,
+                    links=[],
+                    body_text="棰樼洰 璇锋鏌ユ槸鍚︽湁涔辩爜",
+                )
+            }
+        )
+
+        result = self.scraper.export_problem_sets(
+            [ProblemSetSummary(id="demo-mojibake", title="乱码题目集", url=problem_url)],
+            output_dir=Path(self.temp_dir.name) / "exports",
+            embed_images=False,
+            target_account="demo-user",
+        )
+
+        self.assertTrue(any(item.category == "content_mojibake" for item in result.warning_details))
+        self.assertEqual(1, result.summary.content_warning_count)
 
     def test_export_separate_mode_generates_one_docx_per_problem_set(self) -> None:
         first_url = "https://pintia.cn/problem-sets/demo-a"

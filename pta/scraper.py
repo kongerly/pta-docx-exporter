@@ -16,6 +16,7 @@ from models import (
     Assignment,
     ExportResult,
     ExportSummary,
+    ExportWarning,
     ExportSourceSummary,
     Problem,
     ProblemImage,
@@ -216,7 +217,7 @@ class PTAScraper:
             raise ValueError(ScraperText.unsupported_export_mode(export_mode))
         export_sources = [self._normalize_export_source(item) for item in problem_sets]
         materialized: list[Assignment] = []
-        warnings: list[str] = []
+        warning_details: list[ExportWarning] = []
         total_sets = len(export_sources)
         self._emit_progress(progress_callback, percent=0, message=ScraperText.preparing_export(total_sets))
 
@@ -237,7 +238,7 @@ class PTAScraper:
                 problem_set_total=total_sets,
             )
             materialized.append(assignment)
-            warnings.extend(assignment.warnings)
+            warning_details.extend(assignment.warning_details)
             self._emit_export_progress(
                 progress_callback,
                 problem_set_index=set_index,
@@ -260,7 +261,7 @@ class PTAScraper:
             progress_callback,
             percent=100,
             message=ScraperText.EXPORT_GENERATING,
-            warnings=list(warnings),
+            warnings=self._warning_messages(warning_details),
         )
         output_paths = self._write_export_documents(
             materialized,
@@ -269,12 +270,14 @@ class PTAScraper:
             merged_filename_stem=merged_filename_stem,
         )
         primary_output_path = str(output_paths[0]) if output_paths else ""
+        warnings = self._warning_messages(warning_details)
         result = ExportResult(
             output_path=primary_output_path,
             output_paths=[str(path) for path in output_paths],
             export_mode=export_mode,
             warnings=warnings,
-            summary=self._build_export_summary(materialized, warnings),
+            warning_details=warning_details,
+            summary=self._build_export_summary(materialized, warning_details),
         )
         output_path = primary_output_path
         self._emit_progress(
@@ -288,17 +291,21 @@ class PTAScraper:
     def shutdown(self) -> None:
         self.session.close()
 
-    def _build_export_summary(self, assignments: list[Assignment], warnings: list[str]) -> ExportSummary:
+    def _build_export_summary(self, assignments: list[Assignment], warning_details: list[ExportWarning]) -> ExportSummary:
         expected_problem_total = sum(max(assignment.expected_problem_total, 0) for assignment in assignments)
         parsed_problem_total = sum(max(assignment.parsed_problem_total, 0) for assignment in assignments)
-        image_warning_count = sum(1 for warning in warnings if "图片" in warning)
+        warning_category_counts = self._warning_category_counts(warning_details)
         return ExportSummary(
             exported_problem_set_count=len(assignments),
             expected_problem_total=expected_problem_total,
             parsed_problem_total=parsed_problem_total,
             failed_problem_total=max(expected_problem_total - parsed_problem_total, 0),
-            warning_count=len(warnings),
-            image_warning_count=image_warning_count,
+            warning_count=len(warning_details),
+            image_warning_count=warning_category_counts.get(ScraperText.WARNING_CATEGORY_IMAGE, 0),
+            missing_problem_warning_count=warning_category_counts.get(ScraperText.WARNING_CATEGORY_PROBLEM, 0),
+            page_warning_count=warning_category_counts.get(ScraperText.WARNING_CATEGORY_PAGE, 0),
+            content_warning_count=warning_category_counts.get(ScraperText.WARNING_CATEGORY_CONTENT, 0),
+            warning_category_counts=warning_category_counts,
         )
 
     def _write_export_documents(
@@ -460,9 +467,9 @@ class PTAScraper:
             inline_problems = self._extract_inline_problems_from_snapshot(snapshot)
             if not inline_problems:
                 continue
-            warnings: list[str] = []
+            warning_details = self._build_snapshot_quality_warnings(source_label, snapshot)
             if embed_images:
-                warnings.extend(
+                warning_details.extend(
                     self._download_problem_images(
                         inline_problems,
                         progress_callback=progress_callback,
@@ -472,7 +479,7 @@ class PTAScraper:
                     )
                 )
             expected_total = export_source.problem_count or self._expected_inline_problem_total(snapshot, inline_problems)
-            warnings.extend(self._build_problem_total_warnings(source_label, expected_total, len(inline_problems)))
+            warning_details.extend(self._build_problem_total_warnings(source_label, expected_total, len(inline_problems)))
             return Assignment(
                 id=export_source.id,
                 title=assignment_title,
@@ -480,7 +487,8 @@ class PTAScraper:
                 course_name=DocxText.DEFAULT_SET_NAME,
                 expected_problem_total=expected_total,
                 parsed_problem_total=len(inline_problems),
-                warnings=warnings,
+                warnings=self._warning_messages(warning_details),
+                warning_details=warning_details,
                 problems=inline_problems,
             )
 
@@ -490,7 +498,7 @@ class PTAScraper:
                 continue
             expected_total = export_source.problem_count or len(problem_links)
             problems: list[Problem] = []
-            warnings: list[str] = []
+            warning_details = self._build_snapshot_quality_warnings(source_label, snapshot)
             seen_urls: set[str] = set()
 
             for problem_index, item in enumerate(problem_links, start=1):
@@ -526,13 +534,13 @@ class PTAScraper:
                         title_source="list-link",
                     )
                     if embed_images:
-                        warnings.extend(self._download_images(problem))
+                        warning_details.extend(self._download_images(problem))
                     problems.append(problem)
                 except Exception as error:
                     title = item["name"] or item["sequence_label"] or item["url"]
-                    warnings.append(ScraperText.problem_fetch_failed(title, error))
+                    warning_details.append(self._build_problem_fetch_warning(source_label, title, error))
 
-            warnings.extend(self._build_problem_total_warnings(source_label, expected_total, len(problems)))
+            warning_details.extend(self._build_problem_total_warnings(source_label, expected_total, len(problems)))
             return Assignment(
                 id=export_source.id,
                 title=assignment_title,
@@ -540,7 +548,8 @@ class PTAScraper:
                 course_name=DocxText.DEFAULT_SET_NAME,
                 expected_problem_total=expected_total,
                 parsed_problem_total=len(problems),
-                warnings=warnings,
+                warnings=self._warning_messages(warning_details),
+                warning_details=warning_details,
                 problems=problems,
             )
 
@@ -549,9 +558,9 @@ class PTAScraper:
             title_hint=assignment_title,
             title_source=export_source.source_kind,
         )
-        warnings: list[str] = []
+        warning_details = self._build_snapshot_quality_warnings(source_label, fallback_snapshot)
         if embed_images:
-            warnings.extend(self._download_images(problem))
+            warning_details.extend(self._download_images(problem))
         return Assignment(
             id=export_source.id,
             title=assignment_title,
@@ -559,7 +568,8 @@ class PTAScraper:
             course_name=DocxText.DEFAULT_SET_NAME,
             expected_problem_total=1,
             parsed_problem_total=1,
-            warnings=warnings,
+            warnings=self._warning_messages(warning_details),
+            warning_details=warning_details,
             problems=[problem],
         )
 
@@ -828,8 +838,8 @@ class PTAScraper:
         problem_set_index: int,
         problem_set_total: int,
         problem_set_title: str,
-    ) -> list[str]:
-        warnings: list[str] = []
+    ) -> list[ExportWarning]:
+        warnings: list[ExportWarning] = []
         total_problems = len(problems)
         for problem_index, problem in enumerate(problems, start=1):
             self._emit_export_progress(
@@ -854,8 +864,8 @@ class PTAScraper:
             warnings.extend(self._download_images(problem))
         return warnings
 
-    def _download_images(self, problem: Problem) -> list[str]:
-        warnings: list[str] = []
+    def _download_images(self, problem: Problem) -> list[ExportWarning]:
+        warnings: list[ExportWarning] = []
         for index, image in enumerate(problem.images, start=1):
             try:
                 data, content_type = self.session.download_bytes(
@@ -864,7 +874,15 @@ class PTAScraper:
                     referer=problem.url,
                 )
             except Exception as error:
-                warnings.append(ScraperText.image_download_failed(problem.title, error))
+                warnings.append(
+                    self._make_warning(
+                        ScraperText.WARNING_CODE_IMAGE_DOWNLOAD_FAILED,
+                        ScraperText.WARNING_CATEGORY_IMAGE,
+                        ScraperText.image_download_failed(problem.title, error),
+                        source_title=problem.title,
+                        problem_title=problem.title,
+                    )
+                )
                 continue
 
             suffix = self._suffix_from_content_type(content_type, image.url)
@@ -873,7 +891,15 @@ class PTAScraper:
                 target.write_bytes(data)
                 image.local_path = str(target)
             except OSError as error:
-                warnings.append(ScraperText.image_write_failed(problem.title, error))
+                warnings.append(
+                    self._make_warning(
+                        ScraperText.WARNING_CODE_IMAGE_WRITE_FAILED,
+                        ScraperText.WARNING_CATEGORY_IMAGE,
+                        ScraperText.image_write_failed(problem.title, error),
+                        source_title=problem.title,
+                        problem_title=problem.title,
+                    )
+                )
         return warnings
 
     def _parse_problem_snapshot(
@@ -1351,10 +1377,84 @@ class PTAScraper:
         parsed = Path(urlparse(fallback_url).path)
         return parsed.suffix or ".bin"
 
-    def _build_problem_total_warnings(self, title: str, expected_total: int, parsed_total: int) -> list[str]:
+    def _build_problem_total_warnings(self, title: str, expected_total: int, parsed_total: int) -> list[ExportWarning]:
         if expected_total <= 0 or expected_total == parsed_total:
             return []
-        return [ScraperText.missing_problem_warning(title, expected_total, parsed_total)]
+        return [
+            self._make_warning(
+                ScraperText.WARNING_CODE_MISSING_PROBLEM_TOTAL,
+                ScraperText.WARNING_CATEGORY_PROBLEM,
+                ScraperText.missing_problem_warning(title, expected_total, parsed_total),
+                source_title=title,
+            )
+        ]
+
+    def _build_problem_fetch_warning(self, source_title: str, problem_title: str, error: Exception) -> ExportWarning:
+        if isinstance(error, SessionError):
+            return self._make_warning(
+                ScraperText.WARNING_CODE_PAGE_UNAVAILABLE,
+                ScraperText.WARNING_CATEGORY_PAGE,
+                ScraperText.page_unavailable_warning(problem_title, error),
+                source_title=source_title,
+                problem_title=problem_title,
+            )
+        return self._make_warning(
+            ScraperText.WARNING_CODE_PROBLEM_FETCH_FAILED,
+            ScraperText.WARNING_CATEGORY_PROBLEM,
+            ScraperText.problem_fetch_failed(problem_title, error),
+            source_title=source_title,
+            problem_title=problem_title,
+        )
+
+    def _build_snapshot_quality_warnings(self, source_title: str, snapshot: PageSnapshot) -> list[ExportWarning]:
+        combined_text = "\n".join(
+            item
+            for item in (snapshot.title, snapshot.body_text, snapshot.html)
+            if item
+        )
+        if not combined_text or not any(marker in combined_text for marker in LIKELY_MOJIBAKE):
+            return []
+        return [
+            self._make_warning(
+                ScraperText.WARNING_CODE_CONTENT_REPAIRED,
+                ScraperText.WARNING_CATEGORY_CONTENT,
+                ScraperText.content_mojibake_warning(source_title),
+                source_title=source_title,
+            )
+        ]
+
+    def _make_warning(
+        self,
+        code: str,
+        category: str,
+        message: str,
+        *,
+        source_title: str = "",
+        problem_title: str = "",
+    ) -> ExportWarning:
+        return ExportWarning(
+            code=code,
+            category=category,
+            message=message,
+            source_title=source_title,
+            problem_title=problem_title,
+        )
+
+    def _warning_messages(self, warning_details: list[ExportWarning]) -> list[str]:
+        messages: list[str] = []
+        seen: set[str] = set()
+        for warning in warning_details:
+            if warning.message in seen:
+                continue
+            seen.add(warning.message)
+            messages.append(warning.message)
+        return messages
+
+    def _warning_category_counts(self, warning_details: list[ExportWarning]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for warning in warning_details:
+            counts[warning.category] = counts.get(warning.category, 0) + 1
+        return counts
 
     def _expected_inline_problem_total(self, snapshot: PageSnapshot, inline_problems: list[Problem]) -> int:
         if not snapshot.html:
