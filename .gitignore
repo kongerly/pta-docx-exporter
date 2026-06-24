@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+dist/
+build/pta_docx_exporter/
+build/output/
+runtime/
+.pytest_cache/
+.appdata/
+tmp_docx/
+PTADocxExporter/
