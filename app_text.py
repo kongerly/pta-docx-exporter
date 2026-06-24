@@ -634,3 +634,10 @@ class UiText:
             "请先确认当前页面已经正常打开；如果页面内容存在但程序仍无法识别，"
             "可能是 PTA 页面结构变化导致抓取失败，请更新样本后检查解析规则。"
         )
+
+    @staticmethod
+    def retry_after_account_mismatch(message: str) -> str:
+        return (
+            f"{message}\n\n"
+            "请点击“重新登录”，切换到要抓取的 PTA 账号后，再重新确认账号并继续导出。"
+        )

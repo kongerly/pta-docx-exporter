@@ -93,6 +93,21 @@ class AppSmokeTests(unittest.TestCase):
         finally:
             root.destroy()
 
+    def test_account_mismatch_error_is_rewritten_with_actionable_hint(self) -> None:
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            app = PTAExporterApp(root)
+            message = app._format_error_message(
+                RuntimeError("当前登录账号“Account A”与目标账号“account-b”不一致，请切换账号后重试。")
+            )
+            self.assertIn("与目标账号", message)
+            self.assertIn("请点击“重新登录”", message)
+            self.assertIn("重新确认账号", message)
+            app.scraper.shutdown()
+        finally:
+            root.destroy()
+
     def test_export_request_summary_includes_account_source_and_queue_preview(self) -> None:
         root = tk.Tk()
         root.withdraw()

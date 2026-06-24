@@ -729,6 +729,8 @@ class PTAExporterApp:
             return UiText.browser_missing()
         if "未检测到有效登录状态" in message or "用户不存在" in message:
             return UiText.retry_after_login(message)
+        if "与目标账号" in message and "不一致" in message:
+            return UiText.retry_after_account_mismatch(message)
         if "页面结构已变化" in message or "页面结构变化导致抓取失败" in message:
             return UiText.retry_after_structure_change(message)
         return message
