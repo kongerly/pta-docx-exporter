@@ -22,6 +22,7 @@ class RepoHygieneTests(unittest.TestCase):
         self.assertIn("面向 Windows", readme)
         self.assertIn("1234html/", readme)
         self.assertIn("浏览器配置目录与会话数据应仅保留在本地", readme)
+        self.assertIn("当前账号、入口 URL、已选导出项数量", readme)
 
 
 if __name__ == "__main__":
