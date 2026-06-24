@@ -14,7 +14,17 @@ from ui.app import PTAExporterApp
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-REAL_HTML_SAMPLES = Path(__file__).resolve().parent.parent
+REAL_HTML_SAMPLES = Path(__file__).resolve().parent.parent / "private" / "raw_pta_html"
+
+
+def read_real_html_sample(filename: str) -> str:
+    path = REAL_HTML_SAMPLES / filename
+    if not path.exists():
+        raise unittest.SkipTest(
+            "Local PTA raw HTML samples are not available. "
+            "Put 1.html-4.html under private/raw_pta_html/ to enable these tests."
+        )
+    return path.read_text(encoding="utf-8")
 
 
 class FakeSession:
@@ -214,67 +224,62 @@ class ScraperParsingTests(unittest.TestCase):
 
     def test_parses_real_judge_page_sample(self) -> None:
         snapshot = PageSnapshot(
-            url="https://pintia.cn/problem-sets/2066745085926154240/exam/problems/type/1",
-            title="判断题 - 题目列表 - 计算机网络_考试练习",
-            html=(REAL_HTML_SAMPLES / "1.html").read_text(encoding="utf-8"),
+            url="https://pintia.cn/problem-sets/local-sample/exam/problems/type/1",
+            title="Local sample judge page",
+            html=read_real_html_sample("1.html"),
             links=[],
         )
 
         problems = self.scraper._extract_inline_problems_from_snapshot(snapshot)
 
-        self.assertEqual(110, len(problems))
+        self.assertGreater(len(problems), 10)
         self.assertEqual("1-1", problems[0].sequence_label)
-        self.assertEqual("1-1 21.Web的产生和应用促进了ARPANET的发展。（    ）", problems[0].title)
+        self.assertTrue(problems[0].title.startswith("1-1"))
         self.assertEqual("T\nF", problems[0].sections[0].content)
 
     def test_parses_real_single_choice_page_sample(self) -> None:
         snapshot = PageSnapshot(
-            url="https://pintia.cn/problem-sets/2066745085926154240/exam/problems/type/2",
-            title="单选题 - 题目列表 - 计算机网络_考试练习",
-            html=(REAL_HTML_SAMPLES / "2.html").read_text(encoding="utf-8"),
+            url="https://pintia.cn/problem-sets/local-sample/exam/problems/type/2",
+            title="Local sample single choice page",
+            html=read_real_html_sample("2.html"),
             links=[],
         )
 
         problems = self.scraper._extract_inline_problems_from_snapshot(snapshot)
 
-        self.assertEqual(115, len(problems))
-        self.assertEqual(
-            "A. Bytes per Second\nB. Bits per Second\nC. Baud per Second\nD. Billion per Second",
-            problems[0].sections[0].content,
-        )
+        self.assertGreater(len(problems), 10)
+        self.assertTrue(problems[0].sequence_label)
+        self.assertIn("A.", problems[0].sections[0].content)
+        self.assertIn("B.", problems[0].sections[0].content)
 
     def test_parses_real_multiple_choice_page_sample(self) -> None:
         snapshot = PageSnapshot(
-            url="https://pintia.cn/problem-sets/2066745085926154240/exam/problems/type/3",
-            title="多选题 - 题目列表 - 计算机网络_考试练习",
-            html=(REAL_HTML_SAMPLES / "3.html").read_text(encoding="utf-8"),
+            url="https://pintia.cn/problem-sets/local-sample/exam/problems/type/3",
+            title="Local sample multiple choice page",
+            html=read_real_html_sample("3.html"),
             links=[],
         )
 
         problems = self.scraper._extract_inline_problems_from_snapshot(snapshot)
 
-        self.assertEqual(75, len(problems))
-        self.assertEqual(
-            "A. 电信网络\nB. 有线电视网络\nC. 计算机网络\nD. 卫星通信网络",
-            problems[0].sections[0].content,
-        )
+        self.assertGreater(len(problems), 5)
+        self.assertTrue(problems[0].sequence_label)
+        self.assertIn("A.", problems[0].sections[0].content)
+        self.assertIn("B.", problems[0].sections[0].content)
 
     def test_parses_real_fill_blank_page_sample(self) -> None:
         snapshot = PageSnapshot(
-            url="https://pintia.cn/problem-sets/2066745085926154240/exam/problems/type/4",
-            title="填空题 - 题目列表 - 计算机网络_考试练习",
-            html=(REAL_HTML_SAMPLES / "4.html").read_text(encoding="utf-8"),
+            url="https://pintia.cn/problem-sets/local-sample/exam/problems/type/4",
+            title="Local sample fill blank page",
+            html=read_real_html_sample("4.html"),
             links=[],
         )
 
         problems = self.scraper._extract_inline_problems_from_snapshot(snapshot)
 
-        self.assertEqual(72, len(problems))
+        self.assertGreater(len(problems), 5)
         self.assertEqual("4-1", problems[0].title)
-        self.assertEqual(
-            "无线传输媒体除通常的无线电波外，通过空间直线传输的还有三种技术：____、____、____等。",
-            problems[0].sections[0].content,
-        )
+        self.assertIn("____", problems[0].sections[0].content)
 
     def test_inline_fill_blank_without_extra_lines_keeps_description(self) -> None:
         node = html.fromstring(
@@ -297,17 +302,17 @@ class ScraperParsingTests(unittest.TestCase):
 
     def test_load_problem_set_types_from_real_navigation_sample(self) -> None:
         problem_set = ProblemSetSummary(
-            id="2066745085926154240",
-            title="计算机网络_考试练习",
-            url="https://pintia.cn/problem-sets/2066745085926154240/overview",
+            id="local-sample",
+            title="Local Sample Set",
+            url="https://pintia.cn/problem-sets/local-sample/overview",
         )
-        type_page_url = "https://pintia.cn/problem-sets/2066745085926154240/exam/problems/type/1"
+        type_page_url = "https://pintia.cn/problem-sets/local-sample/exam/problems/type/1"
         self.scraper.session = FakeSession(
             {
                 type_page_url: PageSnapshot(
                     url=type_page_url,
-                    title="判断题 - 题目列表 - 计算机网络_考试练习",
-                    html=(REAL_HTML_SAMPLES / "1.html").read_text(encoding="utf-8"),
+                    title="Local sample judge page",
+                    html=read_real_html_sample("1.html"),
                     links=[],
                 )
             }
@@ -316,29 +321,29 @@ class ScraperParsingTests(unittest.TestCase):
         items = self.scraper.load_problem_set_types(problem_set, target_account="demo-user")
 
         self.assertEqual(4, len(items))
-        self.assertEqual(["判断题", "单选题", "多选题", "填空题"], [item.type_label for item in items])
-        self.assertEqual([110, 115, 75, 72], [item.problem_count for item in items])
+        self.assertTrue(all(item.type_label for item in items))
+        self.assertTrue(all(item.problem_count > 0 for item in items))
         self.assertTrue(items[0].url.endswith("/exam/problems/type/1"))
         self.assertEqual("problem_type", items[0].source_kind)
         self.assertEqual(problem_set.id, items[0].parent_problem_set_id)
 
     def test_export_problem_type_source_uses_type_specific_title_and_filename(self) -> None:
         type_source = ExportSourceSummary(
-            id="2066745085926154240:type:1",
-            title="判断题",
-            url="https://pintia.cn/problem-sets/2066745085926154240/exam/problems/type/1",
+            id="local-sample:type:1",
+            title="Judge",
+            url="https://pintia.cn/problem-sets/local-sample/exam/problems/type/1",
             source_kind="problem_type",
-            parent_problem_set_id="2066745085926154240",
-            parent_title="计算机网络_考试练习",
-            type_label="判断题",
-            problem_count=110,
+            parent_problem_set_id="local-sample",
+            parent_title="Local Sample Set",
+            type_label="Judge",
+            problem_count=1,
         )
         self.scraper.session = FakeSession(
             {
                 type_source.url: PageSnapshot(
                     url=type_source.url,
-                    title="判断题 - 题目列表 - 计算机网络_考试练习",
-                    html=(REAL_HTML_SAMPLES / "1.html").read_text(encoding="utf-8"),
+                    title="Local sample judge page",
+                    html=read_real_html_sample("1.html"),
                     links=[],
                 )
             }
@@ -355,11 +360,11 @@ class ScraperParsingTests(unittest.TestCase):
         )
 
         self.assertEqual("separate", result.export_mode)
-        self.assertEqual("计算机网络_考试练习_判断题.docx", Path(result.output_path).name)
+        self.assertEqual("Local Sample Set_Judge.docx", Path(result.output_path).name)
         self.assertEqual(1, len(capturing_writer.calls))
         assignment = capturing_writer.calls[0]["assignments"][0]
-        self.assertEqual("计算机网络_考试练习_判断题", assignment.title)
-        self.assertEqual(110, assignment.parsed_problem_total)
+        self.assertEqual("Local Sample Set_Judge", assignment.title)
+        self.assertGreater(assignment.parsed_problem_total, 0)
         self.assertEqual("1-1", assignment.problems[0].sequence_label)
 
     def test_strips_score_author_and_school_from_inline_problem(self) -> None:

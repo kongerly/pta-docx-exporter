@@ -1,83 +1,77 @@
-# PTA 作业导出器
+# PTA DOCX Exporter
 
-一个面向 Windows 的桌面工具：登录 PTA（Pintia）后，加载题目集或题型，并导出为结构化的 `.docx` 文档，方便教学整理、打印和归档。
+A Windows desktop tool for exporting PTA (Pintia) problem sets into structured Word (`.docx`) documents.
 
-当前版本：`0.2.0`
+It is designed for cases where you need to review, organize, print, or archive problem content from PTA in a cleaner offline format.
 
-## 项目特点
+## Features
 
-- `Python + Tkinter` 桌面界面，适合教师或学生直接使用
-- `Node + Playwright` 浏览器桥，复用真实登录态，减少页面兼容问题
-- 支持导出整套题目集，也支持按题型单独导出
-- 支持保留题面图片，并在图片下载失败时给出完整性警告
-- 对判断题、单选题、多选题、填空题等页面结构做了专门解析
-- 导出结果会显示摘要：导出项数量、题目成功数、缺失数、警告数
+- Desktop UI built with `Python + Tkinter`
+- Reuses a real browser login session through `Node + Playwright`
+- Supports exporting either:
+  - an entire problem set
+  - a single question type inside a problem set
+- Generates structured `.docx` output for easier reading and printing
+- Can download and embed images from problem statements
+- Preserves export warnings when some problems or images cannot be fetched
 
-## 运行环境
+## Supported Content
+
+The current parser includes handling for common PTA exam and assignment pages such as:
+
+- true/false questions
+- single-choice questions
+- multiple-choice questions
+- fill-in-the-blank questions
+
+## Environment
 
 - Windows 10/11
 - Python `3.12+`
-- Microsoft Edge 或 Google Chrome
-- Node 运行时和 `playwright` Node 依赖
+- Microsoft Edge or Google Chrome
+- Node runtime with Playwright dependencies
 
-说明：
-
-- 开发态运行时，程序会优先尝试使用以下 Node 运行时来源：
-  - 环境变量 `PTA_NODE_EXE` / `PTA_NODE_MODULES`
-  - 打包产物中的 `runtime/node`
-  - Codex 自带 Node 依赖目录
-- 发布态建议始终把 `runtime/node` 一起打包进去，这样最终用户不需要手动配置运行时。
-
-## 安装依赖
+## Install
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-## 启动方式
+## Run
 
 ```powershell
 python main.py
 ```
 
-如果你在 Codex 自带 Python 环境中运行，也可以：
+## Typical Workflow
 
-```powershell
-& 'C:\Users\6\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' .\main.py
-```
+1. Open the PTA login page from the app.
+2. Complete login in the browser window.
+3. Confirm the detected account.
+4. Load available problem sets.
+5. Select the problem set or question type you want to export.
+6. Choose merged or separate Word export mode.
+7. Export to `.docx`.
 
-## 使用流程
+## Configuration
 
-1. 点击 `1. 打开登录页`
-2. 在弹出的浏览器中完成 PTA 登录
-3. 点击 `3. 确认账号`
-4. 点击 `4. 加载题目集`
-5. 在左侧树中选择题目集或题型，加入右侧导出队列
-6. 选择导出方式：
-   - 合并为一个 Word
-   - 每个导出项单独生成 Word
-7. 点击 `5. 导出 Word`
-8. 导出完成后查看摘要、警告，并按需打开输出目录
+Core configuration is defined in [config.py](config.py):
 
-## 稳定配置项
+- `start_url`
+- `output_dir`
+- `session_profile_dir`
+- `temp_dir`
+- `embed_images`
 
-当前稳定配置由 [config.py](/D:/CodeBase/ptadocx/config.py) 中的 `AppConfig` 定义：
+## Build
 
-- `start_url`：默认入口 URL
-- `output_dir`：导出目录
-- `session_profile_dir`：浏览器登录会话目录
-- `temp_dir`：临时文件目录
-- `embed_images`：是否下载并嵌入图片
-
-## 打包发布
-
-推荐直接运行：
+To build the Windows package:
 
 ```powershell
 pwsh .\build\build.ps1 -PythonExe python
 ```
 
-脚本会优先自动寻找可用的 Node 运行时并复制到 `runtime/node`。如果你要显式指定运行时路径：
+To explicitly provide a Node runtime:
 
 ```powershell
 pwsh .\build\build.ps1 `
@@ -86,58 +80,41 @@ pwsh .\build\build.ps1 `
   -NodeModulesDir "C:\path\to\node_modules"
 ```
 
-如果只想在 CI 中验证 PyInstaller 打包是否成功，不拷贝运行时：
+To verify packaging only in CI:
 
 ```powershell
 pwsh .\build\build.ps1 -PythonExe python -SkipRuntimeCopy
 ```
 
-## 测试
+## Tests
 
 ```powershell
 python -m unittest discover -s tests -v
 ```
 
-## 已知限制
+If you keep raw PTA HTML snapshots locally for parser regression tests, place them under:
 
-- 目前只面向 Windows 设计和验证
-- 依赖 PTA 当前页面结构，若 Pintia 前端大改，解析规则可能需要更新
-- 登录态依赖本地浏览器环境，无法脱离浏览器完成抓取
-- 若图片资源受限、超时或失效，文档仍会导出，但会附带完整性警告
+- `private/raw_pta_html/1.html`
+- `private/raw_pta_html/2.html`
+- `private/raw_pta_html/3.html`
+- `private/raw_pta_html/4.html`
 
-## 常见问题
+These files are intentionally ignored by Git and are not meant to be committed to a public repository.
 
-### 1. 提示找不到 `node.exe`
+## Privacy Notes
 
-优先使用打包产物，或设置：
+- This project does not bypass PTA login. It only reuses a login session that you complete in your own browser environment.
+- Browser profile data and session data should stay local and must not be committed.
+- Raw HTML saved directly from PTA pages may contain sensitive information such as real names, course titles, or problem set identifiers. Keep such files only in ignored local directories like `private/raw_pta_html/`.
+- Use this tool only for courses, problem sets, and accounts you are authorized to access.
 
-```powershell
-$env:PTA_NODE_EXE="C:\path\to\node.exe"
-$env:PTA_NODE_MODULES="C:\path\to\node_modules"
-python main.py
-```
+## Limitations
 
-### 2. 提示找不到 Edge 或 Chrome
+- Currently developed and tested for Windows only
+- Relies on the current PTA page structure
+- May require parser updates if Pintia changes its frontend significantly
+- Image downloads may fail because of network limits, timeouts, or source availability; export will still continue with warnings
 
-请先安装 Microsoft Edge 或 Google Chrome，并确保安装在默认路径，或通过 `PTA_BROWSER_EXECUTABLE` 指定路径。
+## Changelog
 
-### 3. 导出完成但有警告
-
-这通常意味着：
-
-- 个别题目页面抓取失败
-- 题面图片下载失败
-- 页面返回的题目总数和实际抓到的题目数不一致
-
-程序会继续导出成功抓取到的内容，并在结果摘要和警告中标明问题。
-
-## 隐私与账号风险提示
-
-- 本工具不会尝试破解登录，仅复用你在本机浏览器中完成的真实登录状态
-- 会话信息会保存在本地应用数据目录，用于后续抓取复用
-- 请只在你有权限访问的课程、题目集和账号环境中使用
-- 如果用于教学资料整理，请自行确认平台使用规范与课程要求
-
-## 变更记录
-
-见 [CHANGELOG.md](/D:/CodeBase/ptadocx/CHANGELOG.md)。
+See [CHANGELOG.md](CHANGELOG.md).
