@@ -10,4 +10,6 @@ runtime/
 .appdata/
 tmp_docx/
 PTADocxExporter/
+AGENTS.md
+1234html/
 private/raw_pta_html/

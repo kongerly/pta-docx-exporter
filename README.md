@@ -63,13 +63,13 @@ python main.py
 构建带运行时的完整便携版：
 
 ```powershell
-pwsh .\build\build.ps1 -PythonExe python
+powershell -ExecutionPolicy Bypass -File .\build\build.ps1 -PythonExe python
 ```
 
 如需手动指定 Node 运行时：
 
 ```powershell
-pwsh .\build\build.ps1 `
+powershell -ExecutionPolicy Bypass -File .\build\build.ps1 `
   -PythonExe python `
   -NodeExe "C:\path\to\node.exe" `
   -NodeModulesDir "C:\path\to\node_modules"
@@ -78,10 +78,11 @@ pwsh .\build\build.ps1 `
 如果只想在 CI 中验证是否能成功打包，可使用最小打包模式：
 
 ```powershell
-pwsh .\build\build.ps1 -PythonExe python -SkipRuntimeCopy
+powershell -ExecutionPolicy Bypass -File .\build\build.ps1 -PythonExe python -SkipRuntimeCopy
 ```
 
 构建脚本会用中文提示当前构建版本，并在缺少 `node.exe`、`node_modules` 或 Playwright 依赖时给出区分说明。
+当前版本已在本地完成完整便携版构建验证，并确认产物可最小启动。
 
 ## 隐私说明
 
