@@ -102,6 +102,53 @@ class DocxWriterTests(unittest.TestCase):
             self.assertTrue(output.exists())
             self.assertEqual("01_homework_1.docx", output.name)
 
+    def test_sanitizes_windows_reserved_and_invalid_filename_stem(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            assignment = Assignment(
+                id="a1",
+                title="Homework 1",
+                url="https://pintia.cn/problem-sets/homework-1",
+                problems=[Problem(id="p1", title="Problem 1", url="https://pintia.cn/problems/p1")],
+            )
+
+            reserved_output = DocxWriter().write_document(
+                DocxText.DEFAULT_SET_NAME,
+                [assignment],
+                temp_path,
+                filename_stem="CON",
+            )
+            invalid_output = DocxWriter().write_document(
+                DocxText.DEFAULT_SET_NAME,
+                [assignment],
+                temp_path,
+                filename_stem='  PTA:网络/练习*1?."  ',
+            )
+
+            self.assertEqual("CON_.docx", reserved_output.name)
+            self.assertEqual("PTA_网络_练习_1.docx", invalid_output.name)
+
+    def test_truncates_overlong_filename_stem_for_windows_portability(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            assignment = Assignment(
+                id="a1",
+                title="Homework 1",
+                url="https://pintia.cn/problem-sets/homework-1",
+                problems=[Problem(id="p1", title="Problem 1", url="https://pintia.cn/problems/p1")],
+            )
+
+            long_name = "网络题库" * 80
+            output = DocxWriter().write_document(
+                DocxText.DEFAULT_SET_NAME,
+                [assignment],
+                temp_path,
+                filename_stem=long_name,
+            )
+
+            self.assertTrue(output.exists())
+            self.assertLessEqual(len(output.stem), 120)
+
     def test_hides_description_heading_and_keeps_options_inline(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

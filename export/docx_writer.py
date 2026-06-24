@@ -17,6 +17,31 @@ from models import Assignment, Problem, ProblemImage
 
 OPTION_LINE_RE = re.compile(r"^[A-DFTＡ-ＤＦＴ][.．、]\s+")
 TRUE_FALSE_LINE_RE = re.compile(r"^[TFＴＦ]$", re.IGNORECASE)
+WINDOWS_RESERVED_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9",
+}
+MAX_FILENAME_STEM_LENGTH = 120
 
 
 class DocxWriter:
@@ -238,5 +263,13 @@ class DocxWriter:
         r_fonts.set(qn("w:eastAsia"), font_name)
 
     def _safe_name(self, value: str) -> str:
-        cleaned = re.sub(r'[\\/:*?"<>|]+', "_", value).strip()
+        cleaned = re.sub(r"[\x00-\x1f]+", " ", value or "")
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        cleaned = re.sub(r'[\\/:*?"<>|]+', "_", cleaned)
+        cleaned = re.sub(r"_+", "_", cleaned)
+        cleaned = cleaned.strip(" ._")
+        if cleaned.upper() in WINDOWS_RESERVED_NAMES:
+            cleaned = f"{cleaned}_"
+        if len(cleaned) > MAX_FILENAME_STEM_LENGTH:
+            cleaned = cleaned[:MAX_FILENAME_STEM_LENGTH].rstrip(" ._")
         return cleaned or DocxText.DEFAULT_FILENAME_STEM
