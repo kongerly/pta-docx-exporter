@@ -26,12 +26,13 @@ jobs:
         run: |
           @'
           import tkinter as tk
+          from app_text import UiText
           from ui.app import PTAExporterApp
 
           root = tk.Tk()
           root.withdraw()
           app = PTAExporterApp(root)
-          assert app.status_var.get() == "准备就绪"
+          assert app.status_var.get() == UiText.READY
           app.scraper.shutdown()
           root.destroy()
           '@ | python -

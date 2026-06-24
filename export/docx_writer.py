@@ -12,6 +12,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
+from app_text import DocxText
 from models import Assignment, Problem, ProblemImage
 
 OPTION_LINE_RE = re.compile(r"^[A-DFTＡ-ＤＦＴ][.．、]\s+")
@@ -89,7 +90,7 @@ class DocxWriter:
         if assignment.warnings:
             warning = document.add_paragraph()
             warning.paragraph_format.space_after = Pt(8)
-            run = warning.add_run("抓取提醒：")
+            run = warning.add_run(DocxText.WARNING_PREFIX)
             run.bold = True
             run.font.color.rgb = RGBColor(163, 93, 15)
             warning.add_run("；".join(assignment.warnings))
@@ -105,7 +106,7 @@ class DocxWriter:
         for section in problem.sections:
             if problem.samples and section.kind.startswith("sample"):
                 continue
-            show_heading = not (section.kind == "description" and section.title == "题目描述")
+            show_heading = not (section.kind == "description" and section.title == DocxText.DESCRIPTION_HEADING)
             if show_heading:
                 section_heading = document.add_paragraph(section.title, style="Heading 3")
                 section_heading.paragraph_format.keep_with_next = True
@@ -117,15 +118,15 @@ class DocxWriter:
                     self._add_body_content(document, block)
 
         if problem.samples:
-            sample_heading = document.add_paragraph("样例", style="Heading 3")
+            sample_heading = document.add_paragraph(DocxText.SAMPLE_HEADING, style="Heading 3")
             sample_heading.paragraph_format.keep_with_next = True
             self._apply_heading_run_fonts(sample_heading)
             for index, sample in enumerate(problem.samples, start=1):
                 if sample.input_text:
-                    document.add_paragraph(f"样例输入 {index}")
+                    document.add_paragraph(DocxText.sample_input(index))
                     self._add_code_table(document, sample.input_text)
                 if sample.output_text:
-                    document.add_paragraph(f"样例输出 {index}")
+                    document.add_paragraph(DocxText.sample_output(index))
                     self._add_code_table(document, sample.output_text)
                 if sample.note:
                     self._add_body_paragraph(document, sample.note)
@@ -189,7 +190,7 @@ class DocxWriter:
         if not valid_images:
             return
 
-        image_heading = document.add_paragraph("题面图片", style="Heading 3")
+        image_heading = document.add_paragraph(DocxText.IMAGE_HEADING, style="Heading 3")
         self._apply_heading_run_fonts(image_heading)
         for image in valid_images:
             path = Path(image.local_path)
@@ -238,4 +239,4 @@ class DocxWriter:
 
     def _safe_name(self, value: str) -> str:
         cleaned = re.sub(r'[\\/:*?"<>|]+', "_", value).strip()
-        return cleaned or "PTA"
+        return cleaned or DocxText.DEFAULT_FILENAME_STEM

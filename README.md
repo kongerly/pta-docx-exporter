@@ -4,6 +4,8 @@
 
 适合用于题目整理、离线查阅、打印复习和资料归档等场景。
 
+当前版本：`v0.3.0`
+
 ## 功能特点
 
 - 基于 `Python + Tkinter` 的桌面图形界面
@@ -53,19 +55,11 @@ python main.py
 6. 选择合并导出或分别导出模式。
 7. 导出为 `.docx` 文档。
 
-## 配置说明
-
-核心配置定义见 [config.py](config.py)：
-
-- `start_url`
-- `output_dir`
-- `session_profile_dir`
-- `temp_dir`
-- `embed_images`
-
 ## 打包构建
 
-构建 Windows 可执行版本：
+本阶段正式交付物仅为 Windows 便携版，不提供安装包。
+
+构建带运行时的完整便携版：
 
 ```powershell
 pwsh .\build\build.ps1 -PythonExe python
@@ -80,7 +74,7 @@ pwsh .\build\build.ps1 `
   -NodeModulesDir "C:\path\to\node_modules"
 ```
 
-如果只想在 CI 中验证是否能成功打包：
+如果只想在 CI 中验证是否能成功打包，可使用最小打包模式：
 
 ```powershell
 pwsh .\build\build.ps1 -PythonExe python -SkipRuntimeCopy
@@ -91,6 +85,7 @@ pwsh .\build\build.ps1 -PythonExe python -SkipRuntimeCopy
 - 本项目不会绕过 PTA 登录，只会复用你在本机浏览器中完成的真实登录状态。
 - 浏览器配置目录与会话数据应仅保留在本地，不能提交到版本库。
 - 直接从 PTA 页面保存的原始 HTML 可能包含真实姓名、课程名称、题目集编号等敏感信息，应只保存在本地忽略目录中。
+- 本地协作文件、原始页面样本和浏览器会话数据都不应进入公开仓库。
 - 请仅在你有权限访问的课程、题目集和账号环境中使用本工具。
 
 ## 已知限制

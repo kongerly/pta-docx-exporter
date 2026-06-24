@@ -5,8 +5,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from app_meta import APP_ID
 
-APP_NAME = "PTADocxExporter"
 DEFAULT_START_URL = "https://pintia.cn/problem-sets/all"
 
 
@@ -29,8 +29,8 @@ def app_data_root() -> Path:
     else:
         base = Path.home() / ".local" / "share"
     candidates = [
-        base / APP_NAME,
-        project_root() / ".appdata" / APP_NAME,
+        base / APP_ID,
+        project_root() / ".appdata" / APP_ID,
     ]
     for path in candidates:
         try:
@@ -66,7 +66,7 @@ class AppConfig:
     @classmethod
     def load_default(cls) -> "AppConfig":
         base = app_data_root()
-        fallback_base = project_root() / ".appdata" / APP_NAME
+        fallback_base = project_root() / ".appdata" / APP_ID
         fallback_base.mkdir(parents=True, exist_ok=True)
         output_dir = ensure_subdir(base, fallback_base, "exports")
         profile_dir = ensure_subdir(base, fallback_base, "pta-profile")

@@ -9,6 +9,7 @@ from urllib.parse import urljoin, urlparse
 
 from lxml import html
 
+from app_text import DocxText, ParserText, ScraperText
 from config import AppConfig
 from export.docx_writer import DocxWriter
 from models import (
@@ -25,25 +26,7 @@ from models import (
 from pta.session import PTASessionManager, PageSnapshot, SessionError
 
 
-SECTION_LABELS = {
-    "题目描述": "description",
-    "Description": "description",
-    "输入格式": "input",
-    "输入说明": "input",
-    "Input Specification": "input",
-    "输出格式": "output",
-    "输出说明": "output",
-    "Output Specification": "output",
-    "样例输入": "sample_input",
-    "Sample Input": "sample_input",
-    "样例输出": "sample_output",
-    "Sample Output": "sample_output",
-    "提示": "hint",
-    "备注": "hint",
-    "Note": "hint",
-    "Notes": "hint",
-}
-
+SECTION_LABELS = ParserText.SECTION_LABELS
 SECTION_TITLES = tuple(SECTION_LABELS.keys())
 LIKELY_MOJIBAKE = (
     "棰樼洰",
@@ -105,13 +88,7 @@ BLANK_TOKEN_RE = re.compile(r"\{\{BLANK:(\d+)\}\}")
 BRACKETED_BLANK_RE = re.compile(r"([(\[（【])([ \t]{2,})([)\]）】])")
 INLINE_BLANK_RE = re.compile(r"(?<=\S)([ \t]{3,})(?=\S)")
 
-PUBLISHED_ANSWER_MARKERS = (
-    "评测结果",
-    "参考答案",
-    "标准答案",
-    "题目解析",
-    "答案解析",
-)
+PUBLISHED_ANSWER_MARKERS = ParserText.PUBLISHED_ANSWER_MARKERS
 
 ProgressCallback = Callable[[dict[str, Any]], None]
 ExportSourceInput = ProblemSetSummary | ExportSourceSummary
@@ -155,21 +132,19 @@ class PTAScraper:
     ) -> dict[str, Any]:
         normalized_target = self.normalize_account_id(target_account)
         if not normalized_target:
-            raise SessionError("请先填写目标 PTA 账号。")
+            raise SessionError(ScraperText.TARGET_ACCOUNT_REQUIRED)
 
         state = auth_state or self.get_current_user()
         if not state.get("authenticated"):
-            raise SessionError(str(state.get("message") or "未检测到有效登录状态，请先登录 PTA。"))
+            raise SessionError(str(state.get("message") or ScraperText.LOGIN_REQUIRED))
 
         current_account = self.normalize_account_id(state.get("accountId"))
         if not current_account:
-            raise SessionError("已登录，但无法识别当前账号，请切换账号并重新登录。")
+            raise SessionError(ScraperText.ACCOUNT_UNKNOWN)
 
         if current_account != normalized_target:
             current_display = str(state.get("displayName") or state.get("accountId") or "").strip()
-            raise SessionError(
-                f"当前登录账号“{current_display or state.get('accountId', '')}”与目标账号“{target_account.strip()}”不一致，请切换账号后重试。"
-            )
+            raise SessionError(ScraperText.account_mismatch(current_display or str(state.get("accountId") or ""), target_account))
 
         return state
 
@@ -182,13 +157,13 @@ class PTAScraper:
     ) -> list[ProblemSetSummary]:
         if target_account is not None:
             self.ensure_target_account(target_account, auth_state=auth_state)
-        self._emit_progress(progress_callback, percent=0, message="正在加载题目集列表...")
+        self._emit_progress(progress_callback, percent=0, message=ScraperText.PROBLEM_SET_LIST_LOADING)
         snapshot = self.session.snapshot(self.config.start_url, options=self._problem_set_list_snapshot_options())
         self._assert_snapshot_usable(snapshot)
         items = self._extract_problem_sets_from_dom_snapshot(snapshot)
         if not items:
-            raise SessionError("没有加载到任何题目集，请确认 PTA 已登录，并且页面已正常打开。")
-        self._emit_progress(progress_callback, percent=100, message=f"题目集加载完成，共 {len(items)} 个。")
+            raise SessionError(ScraperText.PROBLEM_SET_LIST_EMPTY)
+        self._emit_progress(progress_callback, percent=100, message=ScraperText.problem_sets_loaded(len(items)))
         return items
 
     def load_problem_set_types(
@@ -201,7 +176,7 @@ class PTAScraper:
     ) -> list[ExportSourceSummary]:
         if target_account is not None:
             self.ensure_target_account(target_account, auth_state=auth_state)
-        self._emit_progress(progress_callback, percent=0, message=f"正在加载题型：{problem_set.title}")
+        self._emit_progress(progress_callback, percent=0, message=ScraperText.loading_problem_types(problem_set.title))
 
         for url in self._problem_type_page_candidates(problem_set.url):
             try:
@@ -216,11 +191,11 @@ class PTAScraper:
                 self._emit_progress(
                     progress_callback,
                     percent=100,
-                    message=f"题型加载完成：{problem_set.title}（{len(items)} 个）",
+                    message=ScraperText.problem_types_loaded(problem_set.title, len(items)),
                 )
                 return items
 
-        self._emit_progress(progress_callback, percent=100, message=f"未发现可导出的题型：{problem_set.title}")
+        self._emit_progress(progress_callback, percent=100, message=ScraperText.problem_types_not_found(problem_set.title))
         return []
 
     def export_problem_sets(
@@ -238,12 +213,12 @@ class PTAScraper:
         if target_account is not None:
             self.ensure_target_account(target_account, auth_state=auth_state)
         if export_mode not in {"merged", "separate"}:
-            raise ValueError(f"Unsupported export mode: {export_mode}")
+            raise ValueError(ScraperText.unsupported_export_mode(export_mode))
         export_sources = [self._normalize_export_source(item) for item in problem_sets]
         materialized: list[Assignment] = []
         warnings: list[str] = []
         total_sets = len(export_sources)
-        self._emit_progress(progress_callback, percent=0, message=f"准备抓取 {total_sets} 个题目集...")
+        self._emit_progress(progress_callback, percent=0, message=ScraperText.preparing_export(total_sets))
 
         for set_index, export_source in enumerate(export_sources, start=1):
             source_label = export_source.queue_label()
@@ -252,7 +227,7 @@ class PTAScraper:
                 problem_set_index=set_index,
                 problem_set_total=total_sets,
                 problem_set_title=source_label,
-                message=f"正在抓取导出项 {set_index}/{total_sets}：{source_label}",
+                message=ScraperText.exporting_problem_set(set_index, total_sets, source_label),
             )
             assignment = self._materialize_export_source(
                 export_source,
@@ -272,16 +247,19 @@ class PTAScraper:
                 parsed_problem_total=assignment.parsed_problem_total,
                 warnings=list(assignment.warnings),
                 finished_set=True,
-                message=(
-                    f"导出项 {set_index}/{total_sets} 抓取完成：{source_label}"
-                    f"（{assignment.parsed_problem_total}/{assignment.expected_problem_total or assignment.parsed_problem_total}）"
+                message=ScraperText.exported_problem_set(
+                    set_index,
+                    total_sets,
+                    source_label,
+                    assignment.parsed_problem_total,
+                    assignment.expected_problem_total,
                 ),
             )
 
         self._emit_progress(
             progress_callback,
             percent=100,
-            message="题目抓取完成，正在生成 Word 文档...",
+            message=ScraperText.EXPORT_GENERATING,
             warnings=list(warnings),
         )
         output_paths = self._write_export_documents(
@@ -302,7 +280,7 @@ class PTAScraper:
         self._emit_progress(
             progress_callback,
             percent=100,
-            message=f"导出完成：{output_path}",
+            message=ScraperText.export_completed(output_path),
             warnings=list(warnings),
         )
         return result
@@ -349,12 +327,7 @@ class PTAScraper:
 
     def _build_merged_filename(self, assignments: list[Assignment]) -> str:
         titles = [assignment.title.strip() for assignment in assignments if assignment.title.strip()]
-        if not titles:
-            return "PTA题目集"
-        if len(titles) == 1:
-            return titles[0]
-        merged_name = "、".join(titles)
-        return merged_name if len(merged_name) <= 120 else f"{titles[0]}等{len(titles)}个题目集"
+        return ScraperText.merged_export_name(titles)
 
     def _normalize_export_source(self, source: ExportSourceInput) -> ExportSourceSummary:
         if isinstance(source, ExportSourceSummary):
@@ -504,7 +477,7 @@ class PTAScraper:
                 id=export_source.id,
                 title=assignment_title,
                 url=export_source.url,
-                course_name="PTA题目集",
+                course_name=DocxText.DEFAULT_SET_NAME,
                 expected_problem_total=expected_total,
                 parsed_problem_total=len(inline_problems),
                 warnings=warnings,
@@ -534,9 +507,13 @@ class PTAScraper:
                     expected_problem_total=expected_total,
                     parsed_problem_total=len(problems),
                     problem_title=item["name"] or item["sequence_label"] or item["url"],
-                    message=(
-                        f"导出项 {problem_set_index}/{problem_set_total}：{source_label} | "
-                        f"题目 {problem_index}/{expected_total}：{item['name'] or item['sequence_label'] or item['url']}"
+                    message=ScraperText.exporting_problem(
+                        problem_set_index,
+                        problem_set_total,
+                        source_label,
+                        problem_index,
+                        expected_total,
+                        item["name"] or item["sequence_label"] or item["url"],
                     ),
                 )
                 try:
@@ -553,14 +530,14 @@ class PTAScraper:
                     problems.append(problem)
                 except Exception as error:
                     title = item["name"] or item["sequence_label"] or item["url"]
-                    warnings.append(f"题目《{title}》抓取失败：{error}")
+                    warnings.append(ScraperText.problem_fetch_failed(title, error))
 
             warnings.extend(self._build_problem_total_warnings(source_label, expected_total, len(problems)))
             return Assignment(
                 id=export_source.id,
                 title=assignment_title,
                 url=export_source.url,
-                course_name="PTA题目集",
+                course_name=DocxText.DEFAULT_SET_NAME,
                 expected_problem_total=expected_total,
                 parsed_problem_total=len(problems),
                 warnings=warnings,
@@ -579,7 +556,7 @@ class PTAScraper:
             id=export_source.id,
             title=assignment_title,
             url=export_source.url,
-            course_name="PTA题目集",
+            course_name=DocxText.DEFAULT_SET_NAME,
             expected_problem_total=1,
             parsed_problem_total=1,
             warnings=warnings,
@@ -646,9 +623,9 @@ class PTAScraper:
     def _assert_snapshot_usable(self, snapshot: PageSnapshot) -> None:
         combined = self._normalize_text(f"{snapshot.title}\n{snapshot.body_text or ''}")
         if "用户不存在" in combined:
-            raise SessionError("登录状态失效，PTA 返回了“用户不存在”，请重新登录。")
+            raise SessionError(ScraperText.session_expired_user_missing())
         if "错误信息" in combined and "重新加载" in combined:
-            raise SessionError("抓取页面返回错误页，请重新登录后再试。")
+            raise SessionError(ScraperText.snapshot_error_page())
 
     def _extract_problem_sets_from_dom_snapshot(self, snapshot: PageSnapshot) -> list[ProblemSetSummary]:
         document = html.fromstring(snapshot.html)
@@ -798,7 +775,8 @@ class PTAScraper:
             score=score,
             sequence_label=sequence_label,
             title_source=title_source,
-            sections=sections or [ProblemSection(kind="description", title="题目描述", content=self._fallback_problem_content(prepared_root))],
+            sections=sections
+            or [ProblemSection(kind="description", title=DocxText.DESCRIPTION_HEADING, content=self._fallback_problem_content(prepared_root))],
             samples=samples,
             images=images,
         )
@@ -864,9 +842,13 @@ class PTAScraper:
                 expected_problem_total=total_problems,
                 parsed_problem_total=problem_index - 1,
                 problem_title=problem.title,
-                message=(
-                    f"题目集 {problem_set_index}/{problem_set_total}：{problem_set_title} | "
-                    f"题目 {problem_index}/{total_problems}：{problem.title}"
+                message=ScraperText.exporting_problem(
+                    problem_set_index,
+                    problem_set_total,
+                    problem_set_title,
+                    problem_index,
+                    total_problems,
+                    problem.title,
                 ),
             )
             warnings.extend(self._download_images(problem))
@@ -882,7 +864,7 @@ class PTAScraper:
                     referer=problem.url,
                 )
             except Exception as error:
-                warnings.append(f"题目《{problem.title}》的图片下载失败：{error}")
+                warnings.append(ScraperText.image_download_failed(problem.title, error))
                 continue
 
             suffix = self._suffix_from_content_type(content_type, image.url)
@@ -891,7 +873,7 @@ class PTAScraper:
                 target.write_bytes(data)
                 image.local_path = str(target)
             except OSError as error:
-                warnings.append(f"题目《{problem.title}》的图片写入失败：{error}")
+                warnings.append(ScraperText.image_write_failed(problem.title, error))
         return warnings
 
     def _parse_problem_snapshot(
@@ -926,7 +908,8 @@ class PTAScraper:
             score=score,
             sequence_label=sequence_label,
             title_source=resolved_title_source,
-            sections=sections or [ProblemSection(kind="description", title="题目描述", content=self._fallback_problem_content(prepared_root))],
+            sections=sections
+            or [ProblemSection(kind="description", title=DocxText.DESCRIPTION_HEADING, content=self._fallback_problem_content(prepared_root))],
             samples=samples,
             images=images,
         )
@@ -1066,7 +1049,7 @@ class PTAScraper:
             normalized = self._normalize_text(candidate)
             if normalized and not self._is_bad_title_candidate(normalized):
                 return normalized, source
-        return "未命名题目", "fallback"
+        return ScraperText.UNTITLED_PROBLEM, "fallback"
 
     def _extract_page_heading(self, root: html.HtmlElement) -> str:
         for node in root.xpath(".//*[self::h1 or self::h2 or self::h3][normalize-space()]"):
@@ -1371,7 +1354,7 @@ class PTAScraper:
     def _build_problem_total_warnings(self, title: str, expected_total: int, parsed_total: int) -> list[str]:
         if expected_total <= 0 or expected_total == parsed_total:
             return []
-        return [f"题目集《{title}》可能漏题：预期 {expected_total} 题，实际抓到 {parsed_total} 题。"]
+        return [ScraperText.missing_problem_warning(title, expected_total, parsed_total)]
 
     def _expected_inline_problem_total(self, snapshot: PageSnapshot, inline_problems: list[Problem]) -> int:
         if not snapshot.html:

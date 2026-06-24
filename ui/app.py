@@ -8,17 +8,19 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
+from app_meta import build_window_title
+from app_text import UiText
 from config import AppConfig
 from models import ExportResult, ExportSourceSummary, ProblemSetSummary
 from pta.scraper import PTAScraper
 
 
 class PTAExporterApp:
-    TYPE_PLACEHOLDER_TEXT = "展开后加载题型..."
+    TYPE_PLACEHOLDER_TEXT = UiText.TYPE_PLACEHOLDER
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("PTA 作业导出器")
+        self.root.title(build_window_title())
         self.root.geometry("1040x720")
         self.root.minsize(980, 720)
 
@@ -40,16 +42,16 @@ class PTAExporterApp:
         self.output_dir_var = tk.StringVar(value=str(self.config.output_dir))
         self.embed_images_var = tk.BooleanVar(value=self.config.embed_images)
         self.export_mode_var = tk.StringVar(value="merged")
-        self.status_var = tk.StringVar(value="准备就绪")
-        self.login_state_var = tk.StringVar(value="未登录")
-        self.current_account_var = tk.StringVar(value="未识别")
+        self.status_var = tk.StringVar(value=UiText.READY)
+        self.login_state_var = tk.StringVar(value=UiText.NOT_LOGGED_IN)
+        self.current_account_var = tk.StringVar(value=UiText.UNKNOWN_ACCOUNT)
         self.source_var = tk.StringVar(value="")
-        self.queue_summary_var = tk.StringVar(value="已选 0 个导出项")
-        self.progress_text_var = tk.StringVar(value="当前没有进行中的抓取任务")
+        self.queue_summary_var = tk.StringVar(value=UiText.queue_summary(0))
+        self.progress_text_var = tk.StringVar(value=UiText.NO_PROGRESS_TASK)
         self.progress_value_var = tk.DoubleVar(value=0.0)
-        self.warning_text_var = tk.StringVar(value="当前没有完整性警告")
+        self.warning_text_var = tk.StringVar(value=UiText.NO_WARNING)
         self.output_dir_hint_var = tk.StringVar(value="")
-        self.export_summary_var = tk.StringVar(value="尚未开始导出")
+        self.export_summary_var = tk.StringVar(value=UiText.NO_EXPORT_YET)
 
         self._build_layout()
         self.export_mode_var.trace_add("write", lambda *_args: self._update_export_mode_ui())
@@ -61,80 +63,86 @@ class PTAExporterApp:
         container = ttk.Frame(self.root, padding=16)
         container.pack(fill=tk.BOTH, expand=True)
 
-        top = ttk.LabelFrame(container, text="基础配置", padding=12)
+        top = ttk.LabelFrame(container, text=UiText.GROUP_BASIC, padding=12)
         top.pack(fill=tk.X)
 
-        ttk.Label(top, text="入口 URL").grid(row=0, column=0, sticky=tk.W, padx=(0, 8), pady=4)
+        ttk.Label(top, text=UiText.LABEL_START_URL).grid(row=0, column=0, sticky=tk.W, padx=(0, 8), pady=4)
         ttk.Entry(top, textvariable=self.start_url_var, width=76).grid(row=0, column=1, sticky=tk.EW, pady=4)
 
-        ttk.Label(top, text="导出目录").grid(row=1, column=0, sticky=tk.W, padx=(0, 8), pady=4)
+        ttk.Label(top, text=UiText.LABEL_OUTPUT_DIR).grid(row=1, column=0, sticky=tk.W, padx=(0, 8), pady=4)
         self.output_dir_entry = ttk.Entry(top, textvariable=self.output_dir_var, width=76)
         self.output_dir_entry.grid(row=1, column=1, sticky=tk.EW, pady=4)
-        self.output_dir_button = ttk.Button(top, text="选择目录", command=self._choose_output_dir)
+        self.output_dir_button = ttk.Button(top, text=UiText.BUTTON_CHOOSE_DIR, command=self._choose_output_dir)
         self.output_dir_button.grid(row=1, column=2, padx=(8, 0), pady=4)
         self.output_dir_hint_label = ttk.Label(top, textvariable=self.output_dir_hint_var, foreground="#666666")
         self.output_dir_hint_label.grid(row=2, column=1, sticky=tk.W, pady=(0, 4))
 
-        ttk.Checkbutton(top, text="下载并嵌入题面图片", variable=self.embed_images_var).grid(
+        ttk.Checkbutton(top, text=UiText.LABEL_EMBED_IMAGES, variable=self.embed_images_var).grid(
             row=3,
             column=1,
             sticky=tk.W,
             pady=4,
         )
 
-        ttk.Label(top, text="导出方式").grid(row=4, column=0, sticky=tk.W, padx=(0, 8), pady=4)
+        ttk.Label(top, text=UiText.LABEL_EXPORT_MODE).grid(row=4, column=0, sticky=tk.W, padx=(0, 8), pady=4)
         export_mode_frame = ttk.Frame(top)
         export_mode_frame.grid(row=4, column=1, sticky=tk.W, pady=4)
         ttk.Radiobutton(
             export_mode_frame,
-            text="合并成一个 Word",
+            text=UiText.EXPORT_MODE_MERGED,
             variable=self.export_mode_var,
             value="merged",
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             export_mode_frame,
-            text="每个导出项单独一个 Word",
+            text=UiText.EXPORT_MODE_SEPARATE,
             variable=self.export_mode_var,
             value="separate",
         ).pack(side=tk.LEFT, padx=(16, 0))
+        ttk.Label(top, text=UiText.VERSION_LABEL, foreground="#666666").grid(
+            row=5,
+            column=1,
+            sticky=tk.W,
+            pady=(8, 0),
+        )
 
         top.columnconfigure(1, weight=1)
 
         action_bar = ttk.Frame(container, padding=(0, 12, 0, 12))
         action_bar.pack(fill=tk.X)
-        self.login_button = ttk.Button(action_bar, text="1. 打开登录页", command=self._handle_login)
+        self.login_button = ttk.Button(action_bar, text=UiText.BUTTON_LOGIN, command=self._handle_login)
         self.login_button.pack(side=tk.LEFT, padx=(0, 8))
         self.switch_account_button = ttk.Button(
             action_bar,
-            text="2. 重新登录",
+            text=UiText.BUTTON_SWITCH_ACCOUNT,
             command=self._handle_switch_account,
         )
         self.switch_account_button.pack(side=tk.LEFT, padx=(0, 8))
         self.confirm_account_button = ttk.Button(
             action_bar,
-            text="3. 确认账号",
+            text=UiText.BUTTON_CONFIRM_ACCOUNT,
             command=self._handle_confirm_account,
         )
         self.confirm_account_button.pack(side=tk.LEFT, padx=(0, 8))
         self.load_problem_sets_button = ttk.Button(
             action_bar,
-            text="4. 加载题目集",
+            text=UiText.BUTTON_LOAD_SETS,
             command=self._handle_load_problem_sets,
         )
         self.load_problem_sets_button.pack(side=tk.LEFT, padx=(0, 8))
-        self.export_button = ttk.Button(action_bar, text="5. 导出 Word", command=self._handle_export)
+        self.export_button = ttk.Button(action_bar, text=UiText.BUTTON_EXPORT, command=self._handle_export)
         self.export_button.pack(side=tk.LEFT)
 
-        info_frame = ttk.LabelFrame(container, text="登录状态 / 抓取来源", padding=10)
+        info_frame = ttk.LabelFrame(container, text=UiText.GROUP_INFO, padding=10)
         info_frame.pack(fill=tk.X)
-        ttk.Label(info_frame, text="登录状态：").grid(row=0, column=0, sticky=tk.W, padx=(0, 8), pady=4)
+        ttk.Label(info_frame, text=UiText.LABEL_LOGIN_STATE).grid(row=0, column=0, sticky=tk.W, padx=(0, 8), pady=4)
         ttk.Label(info_frame, textvariable=self.login_state_var).grid(row=0, column=1, sticky=tk.W, pady=4)
-        ttk.Label(info_frame, text="当前账号：").grid(row=1, column=0, sticky=tk.W, padx=(0, 8), pady=4)
+        ttk.Label(info_frame, text=UiText.LABEL_CURRENT_ACCOUNT).grid(row=1, column=0, sticky=tk.W, padx=(0, 8), pady=4)
         ttk.Label(info_frame, textvariable=self.current_account_var).grid(row=1, column=1, sticky=tk.W, pady=4)
-        ttk.Label(info_frame, text="抓取来源：").grid(row=2, column=0, sticky=tk.W, padx=(0, 8), pady=4)
+        ttk.Label(info_frame, text=UiText.LABEL_SOURCE).grid(row=2, column=0, sticky=tk.W, padx=(0, 8), pady=4)
         ttk.Label(info_frame, textvariable=self.source_var).grid(row=2, column=1, sticky=tk.W, pady=4)
 
-        progress_frame = ttk.LabelFrame(container, text="抓取进度", padding=10)
+        progress_frame = ttk.LabelFrame(container, text=UiText.GROUP_PROGRESS, padding=10)
         progress_frame.pack(fill=tk.X, pady=(12, 0))
         ttk.Label(progress_frame, textvariable=self.progress_text_var).pack(anchor=tk.W)
         ttk.Progressbar(progress_frame, variable=self.progress_value_var, maximum=100).pack(fill=tk.X, pady=(8, 0))
@@ -154,7 +162,7 @@ class PTAExporterApp:
         lists_row.columnconfigure(2, weight=1, uniform="lists")
         lists_row.rowconfigure(0, weight=1)
 
-        available_frame = ttk.LabelFrame(lists_row, text="题目集 / 题型（左侧展开并加入导出）", padding=10)
+        available_frame = ttk.LabelFrame(lists_row, text=UiText.GROUP_AVAILABLE, padding=10)
         available_frame.grid(row=0, column=0, sticky="nsew")
         available_frame.columnconfigure(0, weight=1)
         available_frame.rowconfigure(0, weight=1)
@@ -174,31 +182,31 @@ class PTAExporterApp:
         control_frame = ttk.Frame(lists_row, padding=(12, 36, 12, 12))
         control_frame.grid(row=0, column=1, sticky="ns")
         control_frame.columnconfigure(0, weight=1)
-        ttk.Button(control_frame, text="加入导出 ->", command=self._add_selected_problem_sets).grid(
+        ttk.Button(control_frame, text=UiText.BUTTON_ADD_TO_QUEUE, command=self._add_selected_problem_sets).grid(
             row=0,
             column=0,
             sticky="ew",
             pady=(0, 8),
         )
-        ttk.Button(control_frame, text="<- 移出导出", command=self._remove_selected_export_items).grid(
+        ttk.Button(control_frame, text=UiText.BUTTON_REMOVE_FROM_QUEUE, command=self._remove_selected_export_items).grid(
             row=1,
             column=0,
             sticky="ew",
             pady=(0, 16),
         )
-        ttk.Button(control_frame, text="上移", command=lambda: self._move_export_item(-1)).grid(
+        ttk.Button(control_frame, text=UiText.BUTTON_MOVE_UP, command=lambda: self._move_export_item(-1)).grid(
             row=2,
             column=0,
             sticky="ew",
             pady=(0, 8),
         )
-        ttk.Button(control_frame, text="下移", command=lambda: self._move_export_item(1)).grid(
+        ttk.Button(control_frame, text=UiText.BUTTON_MOVE_DOWN, command=lambda: self._move_export_item(1)).grid(
             row=3,
             column=0,
             sticky="ew",
         )
 
-        queue_frame = ttk.LabelFrame(lists_row, text="已选导出项（导出顺序）", padding=10)
+        queue_frame = ttk.LabelFrame(lists_row, text=UiText.GROUP_QUEUE, padding=10)
         queue_frame.grid(row=0, column=2, sticky="nsew")
         ttk.Label(queue_frame, textvariable=self.queue_summary_var).pack(anchor=tk.W, pady=(0, 8))
         queue_list_frame = ttk.Frame(queue_frame)
@@ -222,7 +230,7 @@ class PTAExporterApp:
         queue_scroll_x.grid(row=1, column=0, sticky="ew")
         self.export_queue_list.bind("<Double-Button-1>", lambda _event: self._remove_selected_export_items())
 
-        log_frame = ttk.LabelFrame(container, text="运行日志", padding=10)
+        log_frame = ttk.LabelFrame(container, text=UiText.GROUP_LOG, padding=10)
         log_frame.pack(fill=tk.BOTH, expand=True, pady=(12, 0))
         self.log_text = tk.Text(log_frame, height=12, state=tk.DISABLED)
         self.log_text.pack(fill=tk.BOTH, expand=True)
@@ -232,28 +240,28 @@ class PTAExporterApp:
 
     def _handle_login(self) -> None:
         self._run_async(
-            "正在打开登录页，请在浏览器中完成 PTA 登录...",
+            UiText.login_open_status(),
             lambda: self.scraper.open_login_window(self.start_url_var.get().strip()),
             self._after_login_window_opened,
         )
 
     def _handle_switch_account(self) -> None:
         self._run_async(
-            "正在清除当前登录态并打开登录页...",
+            UiText.switch_account_status(),
             lambda: self.scraper.switch_account(self.start_url_var.get().strip()),
             self._after_switch_account_ready,
         )
 
     def _handle_confirm_account(self) -> None:
         self._run_async(
-            "正在确认当前登录账号...",
+            UiText.confirm_account_status(),
             self._confirm_account_and_close_browser,
             self._after_confirm_account,
         )
 
     def _handle_load_problem_sets(self) -> None:
         self._run_authenticated(
-            "正在校验登录状态并加载题目集，请稍候...",
+            UiText.load_problem_sets_status(),
             lambda auth: self.scraper.load_problem_sets(
                 auth_state=auth,
                 progress_callback=self._make_progress_callback(),
@@ -263,7 +271,7 @@ class PTAExporterApp:
 
     def _handle_export(self) -> None:
         if not self.export_queue:
-            messagebox.showwarning("请选择导出项", "请先在左侧树中选择至少一个题目集或题型。")
+            messagebox.showwarning(UiText.DIALOG_NEED_EXPORT_ITEM, UiText.need_export_items())
             return
 
         output_dir = Path(self.output_dir_var.get().strip())
@@ -272,11 +280,11 @@ class PTAExporterApp:
         if export_mode == "merged":
             default_name = self._build_merged_export_name()
             selected_path = filedialog.asksaveasfilename(
-                title="选择合并导出的 Word 文件",
+                title=UiText.DIALOG_EXPORT_FILE,
                 initialdir=str(output_dir),
                 initialfile=f"{default_name}.docx",
                 defaultextension=".docx",
-                filetypes=[("Word 文档", "*.docx")],
+                filetypes=[(UiText.WORD_FILETYPE_LABEL, "*.docx")],
             )
             if not selected_path:
                 return
@@ -289,7 +297,7 @@ class PTAExporterApp:
             return
 
         self._run_authenticated(
-            "正在校验登录状态并抓取题目生成 Word，请稍候...",
+            UiText.export_status(),
             lambda auth: self.scraper.export_problem_sets(
                 list(self.export_queue),
                 output_dir=output_dir,
@@ -322,24 +330,17 @@ class PTAExporterApp:
 
     def _build_merged_export_name(self) -> str:
         titles = [item.export_title().strip() for item in self.export_queue if item.export_title().strip()]
-        if not titles:
-            return "PTA题目集"
-        if len(titles) == 1:
-            return titles[0]
-        merged_name = "、".join(titles)
-        return merged_name if len(merged_name) <= 120 else f"{titles[0]}等{len(titles)}个导出项"
+        return UiText.merged_export_name(titles)
 
     def _confirm_export(self, output_dir: Path, export_mode: str) -> bool:
-        return messagebox.askokcancel("确认导出", self._build_export_request_summary(output_dir, export_mode))
+        return messagebox.askokcancel(UiText.DIALOG_CONFIRM_EXPORT, self._build_export_request_summary(output_dir, export_mode))
 
     def _build_export_request_summary(self, output_dir: Path, export_mode: str) -> str:
-        mode_label = "合并为一个 Word" if export_mode == "merged" else "每个导出项单独生成 Word"
-        image_label = "下载并嵌入图片" if self.embed_images_var.get() else "不下载图片"
-        return (
-            f"将导出 {len(self.export_queue)} 个项目。\n"
-            f"导出方式：{mode_label}\n"
-            f"图片处理：{image_label}\n"
-            f"输出位置：{output_dir}"
+        return UiText.export_request_summary(
+            len(self.export_queue),
+            UiText.export_mode_label(export_mode),
+            UiText.image_mode_label(self.embed_images_var.get()),
+            str(output_dir),
         )
 
     def _update_export_mode_ui(self) -> None:
@@ -347,22 +348,22 @@ class PTAExporterApp:
         self.output_dir_entry.config(state="disabled" if is_merged else "normal")
         self.output_dir_button.config(state="disabled" if is_merged else "normal")
         if is_merged:
-            self.output_dir_hint_var.set("合并导出时会弹出“另存为”窗口，这里的目录不会直接使用。")
+            self.output_dir_hint_var.set(UiText.merged_export_hint())
         else:
-            self.output_dir_hint_var.set("单独导出时会把多个 Word 文档生成到这个目录。")
+            self.output_dir_hint_var.set(UiText.separate_export_hint())
 
     def _after_login_window_opened(self, result: dict[str, Any]) -> None:
-        self.login_state_var.set("等待登录")
-        self._set_progress(0, "登录页已打开，请登录后点击“确认账号”", log_message=False)
-        self._log(result.get("message", "登录页已打开，请登录后手动确认账号。"))
+        self.login_state_var.set(UiText.WAITING_FOR_LOGIN)
+        self._set_progress(0, UiText.login_page_opened(), log_message=False)
+        self._log(result.get("message", UiText.login_page_opened_log()))
         if result.get("finalUrl"):
             self.start_url_var.set(str(result["finalUrl"]))
             self._sync_source_label()
 
     def _after_switch_account_ready(self, result: dict[str, Any]) -> None:
-        self._clear_auth_state("等待登录")
-        self._set_progress(0, "已清除登录态，请在浏览器中登录要抓取的账号...", log_message=False)
-        self._log(result.get("message", "已清除登录态，请重新登录。"))
+        self._clear_auth_state(UiText.WAITING_FOR_LOGIN)
+        self._set_progress(0, UiText.account_cleared(), log_message=False)
+        self._log(result.get("message", UiText.account_cleared_log()))
         if result.get("finalUrl"):
             self.start_url_var.set(str(result["finalUrl"]))
             self._sync_source_label()
@@ -371,8 +372,8 @@ class PTAExporterApp:
         auth = payload.get("auth") or {}
         result = payload.get("result") or {}
         self._apply_auth_state(auth)
-        self._set_progress(100, "账号确认完成，可以开始加载题目集", log_message=False)
-        self._log(result.get("message", "账号确认完成，浏览器已关闭。"))
+        self._set_progress(100, UiText.account_confirmed(), log_message=False)
+        self._log(result.get("message", UiText.account_confirmed_log()))
 
     def _after_load_problem_sets(self, problem_sets: list[ProblemSetSummary]) -> None:
         self.problem_sets = problem_sets
@@ -381,16 +382,16 @@ class PTAExporterApp:
         self.export_queue = []
         self._rebuild_problem_set_tree(problem_sets)
         self._refresh_export_queue_view()
-        self._set_progress(100, f"题目集加载完成，共 {len(problem_sets)} 个", log_message=False)
+        self._set_progress(100, UiText.problem_sets_loaded(len(problem_sets)), log_message=False)
         self._sync_login_state_from_auth()
         if problem_sets:
             first_node = self.problem_tree_root_nodes.get(problem_sets[0].id)
             if first_node:
                 self.problem_set_tree.selection_set(first_node)
                 self.problem_set_tree.focus(first_node)
-            self._log(f"已加载 {len(problem_sets)} 个题目集。")
+            self._log(UiText.problem_sets_loaded_log(len(problem_sets)))
         else:
-            self._log("没有加载到任何题目集。")
+            self._log(UiText.no_problem_sets_loaded())
 
     def _handle_problem_set_tree_open(self, _event: tk.Event) -> None:
         item_id = self.problem_set_tree.focus()
@@ -405,7 +406,7 @@ class PTAExporterApp:
         if problem_set is None:
             return
         self._run_authenticated(
-            f"正在加载题型：{problem_set.title}",
+            UiText.problem_types_loading(problem_set.title),
             lambda auth: self.scraper.load_problem_set_types(
                 problem_set,
                 auth_state=auth,
@@ -435,9 +436,9 @@ class PTAExporterApp:
 
         title = self.problem_set_by_id.get(problem_set_id).title if problem_set_id in self.problem_set_by_id else problem_set_id
         if items:
-            self._log(f"已加载题型：{title}（{len(items)} 个）")
+            self._log(UiText.problem_types_loaded(title, len(items)))
         else:
-            self._log(f"题目集未发现可导出的题型：{title}")
+            self._log(UiText.no_exportable_types(title))
 
     def _after_export(self, result: ExportResult) -> None:
         self.last_export_warnings = list(result.warnings)
@@ -447,19 +448,22 @@ class PTAExporterApp:
         output_path = output_paths[0] if output_paths else Path(self.output_dir_var.get().strip())
         summary = result.summary
         self.export_summary_var.set(
-            f"导出摘要：{summary.exported_problem_set_count} 个导出项，"
-            f"{summary.parsed_problem_total}/{summary.expected_problem_total or summary.parsed_problem_total} 题成功，"
-            f"{summary.warning_count} 条警告"
+            UiText.export_summary(
+                summary.exported_problem_set_count,
+                summary.parsed_problem_total,
+                summary.expected_problem_total,
+                summary.warning_count,
+            )
         )
 
         if result.export_mode == "separate" and len(output_paths) > 1:
-            progress_message = f"导出完成，已生成 {len(output_paths)} 个 Word 文档。"
-            output_message = "Word 文档已生成：\n" + "\n".join(str(path) for path in output_paths[:8])
+            progress_message = UiText.separate_export_completed(len(output_paths))
+            output_message = UiText.export_document_list([str(path) for path in output_paths[:8]])
             if len(output_paths) > 8:
-                output_message += f"\n... 还有 {len(output_paths) - 8} 个文件"
+                output_message += f"\n{UiText.more_files(len(output_paths) - 8)}"
         else:
-            progress_message = f"导出完成：{output_path}"
-            output_message = f"Word 文档已生成：\n{output_path}"
+            progress_message = UiText.export_completed(str(output_path))
+            output_message = UiText.export_document_single(str(output_path))
         dialog_message = f"{output_message}\n\n{self._build_export_result_summary(result)}"
 
         self._set_progress(100, progress_message, log_message=False)
@@ -467,46 +471,46 @@ class PTAExporterApp:
         if result.warnings:
             warning_text = "\n".join(result.warnings[:8])
             if len(result.warnings) > 8:
-                warning_text += f"\n... 还有 {len(result.warnings) - 8} 条警告"
-            self.warning_text_var.set("当前有完整性警告：" + "；".join(result.warnings[:2]))
+                warning_text += f"\n{UiText.more_warnings(len(result.warnings) - 8)}"
+            self.warning_text_var.set(UiText.warning_banner(result.warnings))
             messagebox.showwarning(
-                "导出完成，但有警告",
-                f"{dialog_message}\n\n以下导出项可能没有抓全：\n{warning_text}",
+                UiText.DIALOG_EXPORT_COMPLETE_WITH_WARNING,
+                UiText.export_warning_details(dialog_message, warning_text),
             )
             self._maybe_open_output_dir(output_path)
             return
-        self.warning_text_var.set("当前没有完整性警告")
-        messagebox.showinfo("导出完成", dialog_message)
+        self.warning_text_var.set(UiText.NO_WARNING)
+        messagebox.showinfo(UiText.DIALOG_EXPORT_COMPLETE, dialog_message)
         self._maybe_open_output_dir(output_path)
 
     def _build_export_result_summary(self, result: ExportResult) -> str:
         summary = result.summary
-        lines = [
-            f"导出项：{summary.exported_problem_set_count}",
-            f"题目：{summary.parsed_problem_total}/{summary.expected_problem_total or summary.parsed_problem_total}",
-            f"缺失：{summary.failed_problem_total}",
-            f"警告：{summary.warning_count}",
-        ]
-        if summary.image_warning_count:
-            lines.append(f"图片警告：{summary.image_warning_count}")
-        return "导出摘要：\n" + "\n".join(lines)
+        lines = UiText.export_result_summary_lines(
+            summary.exported_problem_set_count,
+            summary.parsed_problem_total,
+            summary.expected_problem_total,
+            summary.failed_problem_total,
+            summary.warning_count,
+            summary.image_warning_count,
+        )
+        return UiText.export_result_summary_text(lines)
 
     def _maybe_open_output_dir(self, output_path: Path) -> None:
         target_dir = output_path if output_path.is_dir() else output_path.parent
         if not target_dir.exists():
             return
-        if not messagebox.askyesno("打开输出目录", f"是否打开输出目录？\n{target_dir}"):
+        if not messagebox.askyesno(UiText.DIALOG_OPEN_OUTPUT_DIR, UiText.open_output_dir_prompt(str(target_dir))):
             return
         try:
             os.startfile(str(target_dir))
         except OSError as error:
-            self._log(f"打开输出目录失败：{error}")
+            self._log(UiText.open_output_dir_failed(error))
 
     def _require_authenticated_session(self) -> dict[str, Any]:
         auth = self.scraper.get_current_user()
         if auth.get("authenticated"):
             return auth
-        message = str(auth.get("message") or "请先登录并确认账号。").strip()
+        message = str(auth.get("message") or UiText.login_confirmation_required()).strip()
         raise RuntimeError(message)
 
     def _apply_auth_state(self, auth_state: dict[str, Any]) -> None:
@@ -516,41 +520,38 @@ class PTAExporterApp:
         if display_name and account_id and display_name != account_id:
             self.current_account_var.set(f"{display_name} ({account_id})")
         else:
-            self.current_account_var.set(display_name or account_id or "未识别")
+            self.current_account_var.set(display_name or account_id or UiText.UNKNOWN_ACCOUNT)
         self._sync_login_state_from_auth()
 
-    def _clear_auth_state(self, login_state: str = "未登录") -> None:
+    def _clear_auth_state(self, login_state: str = UiText.NOT_LOGGED_IN) -> None:
         self.current_auth_state = None
-        self.current_account_var.set("未识别")
+        self.current_account_var.set(UiText.UNKNOWN_ACCOUNT)
         self.login_state_var.set(login_state)
 
     def _sync_login_state_from_auth(self) -> None:
         auth_state = self.current_auth_state or {}
         if not auth_state.get("authenticated"):
-            self.login_state_var.set("未登录")
+            self.login_state_var.set(UiText.NOT_LOGGED_IN)
             return
         if str(auth_state.get("accountId") or "").strip():
-            self.login_state_var.set("已登录，可以加载题目集")
+            self.login_state_var.set(UiText.ready_to_load_message())
             return
-        self.login_state_var.set("已登录，但无法识别账号")
+        self.login_state_var.set(UiText.logged_in_but_unknown())
 
     def _sync_source_label(self) -> None:
         start_url = self.start_url_var.get().strip()
-        if start_url:
-            self.source_var.set(f"入口：{start_url}")
-        else:
-            self.source_var.set("固定入口：所有题目集")
+        self.source_var.set(UiText.source_label(start_url))
 
     def _run_async(self, status_message: str, job, callback) -> None:
         if self.busy:
-            messagebox.showinfo("请稍候", "当前任务尚未完成，请等待。")
+            messagebox.showinfo(UiText.DIALOG_WAIT, UiText.wait_message())
             return
 
         self.busy = True
         self.last_export_warnings = []
         self.logged_warnings.clear()
-        self.warning_text_var.set("当前没有完整性警告")
-        self.export_summary_var.set("任务进行中，完成后会在这里显示导出摘要")
+        self.warning_text_var.set(UiText.NO_WARNING)
+        self.export_summary_var.set(UiText.EXPORT_IN_PROGRESS)
         self.status_var.set(status_message)
         self._set_button_state("disabled")
         self._set_progress(0, status_message, log_message=True)
@@ -571,26 +572,26 @@ class PTAExporterApp:
     def _finish_async(self, result, error: Exception | None, details: str, callback) -> None:
         self.busy = False
         self._set_button_state("normal")
-        self.status_var.set("准备就绪")
+        self.status_var.set(UiText.READY)
         if error is not None:
             friendly_error = self._format_error_message(error)
             self._log(friendly_error)
             if details:
                 self._log(details)
-            self.export_summary_var.set("本次任务未完成")
-            self._set_progress(self.progress_value_var.get(), f"任务失败：{friendly_error}", log_message=False)
-            messagebox.showerror("操作失败", friendly_error)
+            self.export_summary_var.set(UiText.TASK_INCOMPLETE)
+            self._set_progress(self.progress_value_var.get(), UiText.task_failed(friendly_error), log_message=False)
+            messagebox.showerror(UiText.DIALOG_EXPORT_FAILED, friendly_error)
             return
         callback(result)
 
     def _format_error_message(self, error: Exception) -> str:
         message = str(error).strip()
         if "Could not locate node.exe" in message:
-            return "未找到浏览器桥运行时 node.exe。请使用打包版本，或按 README 配置运行时后再试。"
+            return UiText.node_missing()
         if "Could not locate Microsoft Edge or Google Chrome." in message:
-            return "未检测到 Microsoft Edge 或 Google Chrome。请先安装浏览器后再试。"
+            return UiText.browser_missing()
         if "未检测到有效登录状态" in message or "用户不存在" in message:
-            return f"{message}\n\n请重新登录 PTA 后重试。"
+            return UiText.retry_after_login(message)
         return message
 
     def _set_button_state(self, state: str) -> None:
@@ -606,7 +607,7 @@ class PTAExporterApp:
     def _add_selected_problem_sets(self) -> None:
         sources = self._selected_tree_sources()
         if not sources:
-            messagebox.showinfo("未选择导出项", "请先在左侧树中选中要加入导出的题目集或题型。")
+            messagebox.showinfo(UiText.DIALOG_NO_SELECTION, UiText.need_add_items())
             return
 
         added_count = 0
@@ -621,29 +622,29 @@ class PTAExporterApp:
 
         self._refresh_export_queue_view()
         if added_count > 0:
-            self._log(f"已加入 {added_count} 个导出项到队列。")
+            self._log(UiText.added_to_queue(added_count))
         if skipped_messages:
             detail = "\n".join(skipped_messages[:6])
             if len(skipped_messages) > 6:
-                detail += f"\n... 还有 {len(skipped_messages) - 6} 条提示"
+                detail += f"\n{UiText.more_tips(len(skipped_messages) - 6)}"
             self._log(detail)
-            messagebox.showwarning("部分导出项未加入", detail)
+            messagebox.showwarning(UiText.DIALOG_PARTIAL_ITEMS_SKIPPED, detail)
 
     def _remove_selected_export_items(self) -> None:
         selected_indices = list(self.export_queue_list.curselection())
         if not selected_indices:
-            messagebox.showinfo("未选择导出项", "请先在右侧列表中选中要移除的导出项。")
+            messagebox.showinfo(UiText.DIALOG_NO_SELECTION, UiText.need_remove_items())
             return
 
         selected_set = set(selected_indices)
         self.export_queue = [item for index, item in enumerate(self.export_queue) if index not in selected_set]
         self._refresh_export_queue_view()
-        self._log(f"已从导出队列移除 {len(selected_indices)} 个导出项。")
+        self._log(UiText.removed_from_queue(len(selected_indices)))
 
     def _move_export_item(self, direction: int) -> None:
         selected_indices = list(self.export_queue_list.curselection())
         if len(selected_indices) != 1:
-            messagebox.showinfo("请选择单个导出项", "调整顺序时，请先在右侧列表中只选中一个导出项。")
+            messagebox.showinfo(UiText.DIALOG_NEED_SINGLE_ITEM, UiText.need_single_item())
             return
 
         current_index = selected_indices[0]
@@ -656,13 +657,13 @@ class PTAExporterApp:
             self.export_queue[current_index],
         )
         self._refresh_export_queue_view(selected_index=target_index)
-        self._log("已调整导出顺序。")
+        self._log(UiText.reordered_queue())
 
     def _refresh_export_queue_view(self, selected_index: int | None = None) -> None:
         self.export_queue_list.delete(0, tk.END)
         for index, item in enumerate(self.export_queue, start=1):
             self.export_queue_list.insert(tk.END, f"{index}. {item.queue_label()}")
-        self.queue_summary_var.set(f"已选 {len(self.export_queue)} 个导出项")
+        self.queue_summary_var.set(UiText.queue_summary(len(self.export_queue)))
         if selected_index is not None and 0 <= selected_index < len(self.export_queue):
             self.export_queue_list.selection_set(selected_index)
             self.export_queue_list.see(selected_index)
@@ -706,13 +707,13 @@ class PTAExporterApp:
     ) -> str | None:
         for existing in queue:
             if existing.id == candidate.id or existing.url == candidate.url:
-                return f"《{candidate.queue_label()}》已在导出队列中。"
+                return UiText.duplicate_queue_item(candidate.queue_label())
             if existing.problem_set_id != candidate.problem_set_id:
                 continue
             if candidate.source_kind == "problem_set" and existing.source_kind == "problem_type":
-                return f"题目集《{candidate.problem_set_title}》已有题型子项在队列中，不能再加入整套导出。"
+                return UiText.queue_has_problem_type(candidate.problem_set_title)
             if candidate.source_kind == "problem_type" and existing.source_kind == "problem_set":
-                return f"题目集《{candidate.problem_set_title}》整套已在队列中，不能再加入题型《{candidate.type_title}》。"
+                return UiText.queue_has_problem_set(candidate.problem_set_title, candidate.type_title)
         return None
 
     def _choose_output_dir(self) -> None:
@@ -732,7 +733,7 @@ class PTAExporterApp:
         warnings = [str(item).strip() for item in payload.get("warnings", []) if str(item).strip()]
         if warnings:
             self.last_export_warnings = warnings
-            self.warning_text_var.set("完整性警告：" + "；".join(warnings[:2]))
+            self.warning_text_var.set(UiText.warning_banner_inline(warnings))
             for warning in warnings:
                 if warning not in self.logged_warnings:
                     self._log(warning)

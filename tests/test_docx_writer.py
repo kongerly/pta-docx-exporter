@@ -8,6 +8,7 @@ from pathlib import Path
 from docx import Document
 from PIL import Image
 
+from app_text import DocxText
 from export.docx_writer import DocxWriter
 from models import Assignment, Problem, ProblemImage, ProblemSample, ProblemSection
 
@@ -23,7 +24,7 @@ class DocxWriterTests(unittest.TestCase):
                 id="a1",
                 title="第一次作业",
                 url="https://pintia.cn/problem-sets/homework-1",
-                course_name="PTA题目集",
+                course_name=DocxText.DEFAULT_SET_NAME,
                 problems=[
                     Problem(
                         id="p1",
@@ -33,7 +34,7 @@ class DocxWriterTests(unittest.TestCase):
                         sequence_label="L1-001",
                         title_source="list-link",
                         sections=[
-                            ProblemSection(kind="description", title="题目描述", content="请输出 Hello PTA。"),
+                            ProblemSection(kind="description", title=DocxText.DESCRIPTION_HEADING, content="请输出 Hello PTA。"),
                             ProblemSection(kind="input", title="输入格式", content="本题没有输入。"),
                             ProblemSection(kind="output", title="输出格式", content="输出一行 Hello PTA。"),
                         ],
@@ -43,7 +44,7 @@ class DocxWriterTests(unittest.TestCase):
                 ],
             )
 
-            output = DocxWriter().write_document("PTA题目集", [assignment], temp_path)
+            output = DocxWriter().write_document(DocxText.DEFAULT_SET_NAME, [assignment], temp_path)
 
             self.assertTrue(output.exists())
             opened = Document(str(output))
@@ -76,7 +77,7 @@ class DocxWriterTests(unittest.TestCase):
                 ],
             )
 
-            output = DocxWriter().write_document("PTA题目集", [assignment], temp_path)
+            output = DocxWriter().write_document(DocxText.DEFAULT_SET_NAME, [assignment], temp_path)
             opened = Document(str(output))
             text = "\n".join(paragraph.text for paragraph in opened.paragraphs)
             self.assertNotIn("image.png", text)
@@ -92,7 +93,7 @@ class DocxWriterTests(unittest.TestCase):
             )
 
             output = DocxWriter().write_document(
-                "PTA题目集",
+                DocxText.DEFAULT_SET_NAME,
                 [assignment],
                 temp_path,
                 filename_stem="01_homework_1",
@@ -116,7 +117,7 @@ class DocxWriterTests(unittest.TestCase):
                         sections=[
                             ProblemSection(
                                 kind="description",
-                                title="题目描述",
+                                title=DocxText.DESCRIPTION_HEADING,
                                 content="1-1 因特网的前身是 1969 年创建的第一个分组交换网（）。\nA. internet\nB. Internet\nC. NSFNET\nD. ARPANET",
                             )
                         ],
@@ -124,10 +125,10 @@ class DocxWriterTests(unittest.TestCase):
                 ],
             )
 
-            output = DocxWriter().write_document("PTA题目集", [assignment], temp_path)
+            output = DocxWriter().write_document(DocxText.DEFAULT_SET_NAME, [assignment], temp_path)
             opened = Document(str(output))
             paragraphs = [paragraph.text for paragraph in opened.paragraphs if paragraph.text.strip()]
-            self.assertNotIn("题目描述", paragraphs)
+            self.assertNotIn(DocxText.DESCRIPTION_HEADING, paragraphs)
             merged_body = next(paragraph for paragraph in paragraphs if "A. internet" in paragraph)
             self.assertIn("A. internet", merged_body)
             self.assertIn("B. Internet", merged_body)
@@ -147,7 +148,7 @@ class DocxWriterTests(unittest.TestCase):
                         sections=[
                             ProblemSection(
                                 kind="description",
-                                title="题目描述",
+                                title=DocxText.DESCRIPTION_HEADING,
                                 content="A. 请求方\nB. 响应方\nC. 硬件\nD. 软件",
                             )
                         ],
@@ -155,7 +156,7 @@ class DocxWriterTests(unittest.TestCase):
                 ],
             )
 
-            output = DocxWriter().write_document("PTA题目集", [assignment], temp_path)
+            output = DocxWriter().write_document(DocxText.DEFAULT_SET_NAME, [assignment], temp_path)
             opened = Document(str(output))
             option_paragraphs = [paragraph for paragraph in opened.paragraphs if paragraph.text in {"A. 请求方", "B. 响应方", "C. 硬件", "D. 软件"}]
             self.assertEqual(4, len(option_paragraphs))
@@ -180,7 +181,7 @@ class DocxWriterTests(unittest.TestCase):
                         sections=[
                             ProblemSection(
                                 kind="description",
-                                title="题目描述",
+                                title=DocxText.DESCRIPTION_HEADING,
                                 content="TCP 是面向连接的传输层协议。\nT. 正确\nF. 错误",
                             )
                         ],
@@ -192,7 +193,7 @@ class DocxWriterTests(unittest.TestCase):
                         sections=[
                             ProblemSection(
                                 kind="description",
-                                title="题目描述",
+                                title=DocxText.DESCRIPTION_HEADING,
                                 content="请补全 C 语言中的标准输出语句：printf(    );\n函数名是 ________。",
                             )
                         ],
@@ -200,7 +201,7 @@ class DocxWriterTests(unittest.TestCase):
                 ],
             )
 
-            output = DocxWriter().write_document("PTA题目集", [assignment], temp_path)
+            output = DocxWriter().write_document(DocxText.DEFAULT_SET_NAME, [assignment], temp_path)
             opened = Document(str(output))
             paragraphs = [paragraph.text for paragraph in opened.paragraphs if paragraph.text.strip()]
             merged_text = "\n".join(paragraphs)
@@ -225,7 +226,7 @@ class DocxWriterTests(unittest.TestCase):
                     )
                 ],
             )
-            output = DocxWriter().write_document("PTA题目集", [assignment], temp_path)
+            output = DocxWriter().write_document(DocxText.DEFAULT_SET_NAME, [assignment], temp_path)
             with zipfile.ZipFile(output) as archive:
                 document_xml = archive.read("word/document.xml").decode("utf-8")
                 styles_xml = archive.read("word/styles.xml").decode("utf-8")

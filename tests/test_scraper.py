@@ -6,6 +6,7 @@ from pathlib import Path
 
 from lxml import html
 
+from app_text import DocxText
 from config import AppConfig
 from models import ExportSourceSummary, ProblemSetSummary
 from pta.scraper import PTAScraper
@@ -139,7 +140,7 @@ class ScraperParsingTests(unittest.TestCase):
         problem = self.scraper._parse_problem_snapshot(snapshot)
         self.assertEqual("L1-001 Hello PTA", problem.title)
         self.assertEqual("25", problem.score)
-        self.assertTrue(any(section.title == "题目描述" for section in problem.sections))
+        self.assertTrue(any(section.title == DocxText.DESCRIPTION_HEADING for section in problem.sections))
         self.assertEqual(1, len(problem.samples))
         self.assertEqual("Hello PTA", problem.samples[0].output_text)
         self.assertEqual("https://pintia.cn/assets/hello.png", problem.images[0].url)
