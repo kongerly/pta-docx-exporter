@@ -1,61 +1,61 @@
-# PTA DOCX Exporter
+# PTA Word 导出工具
 
-A Windows desktop tool for exporting PTA (Pintia) problem sets into structured Word (`.docx`) documents.
+一个面向 Windows 的桌面工具，用于将 PTA（Pintia）题目集导出为结构化的 Word（`.docx`）文档。
 
-It is designed for cases where you need to review, organize, print, or archive problem content from PTA in a cleaner offline format.
+适合用于题目整理、离线查阅、打印复习和资料归档等场景。
 
-## Features
+## 功能特点
 
-- Desktop UI built with `Python + Tkinter`
-- Reuses a real browser login session through `Node + Playwright`
-- Supports exporting either:
-  - an entire problem set
-  - a single question type inside a problem set
-- Generates structured `.docx` output for easier reading and printing
-- Can download and embed images from problem statements
-- Preserves export warnings when some problems or images cannot be fetched
+- 基于 `Python + Tkinter` 的桌面图形界面
+- 通过 `Node + Playwright` 复用本机浏览器中的真实登录状态
+- 支持导出：
+  - 整个题目集
+  - 题目集中的单个题型
+- 生成结构化的 `.docx` 文档，便于阅读和打印
+- 支持下载并嵌入题面图片
+- 当部分题目或图片抓取失败时，会保留完整告警信息
 
-## Supported Content
+## 当前支持的内容
 
-The current parser includes handling for common PTA exam and assignment pages such as:
+目前已针对 PTA 中常见的题目页面做了解析支持，包括：
 
-- true/false questions
-- single-choice questions
-- multiple-choice questions
-- fill-in-the-blank questions
+- 判断题
+- 单选题
+- 多选题
+- 填空题
 
-## Environment
+## 运行环境
 
 - Windows 10/11
 - Python `3.12+`
-- Microsoft Edge or Google Chrome
-- Node runtime with Playwright dependencies
+- Microsoft Edge 或 Google Chrome
+- Node 运行时及 Playwright 相关依赖
 
-## Install
+## 安装依赖
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-## Run
+## 启动方式
 
 ```powershell
 python main.py
 ```
 
-## Typical Workflow
+## 使用流程
 
-1. Open the PTA login page from the app.
-2. Complete login in the browser window.
-3. Confirm the detected account.
-4. Load available problem sets.
-5. Select the problem set or question type you want to export.
-6. Choose merged or separate Word export mode.
-7. Export to `.docx`.
+1. 在程序中打开 PTA 登录页。
+2. 在浏览器窗口中完成登录。
+3. 回到程序中确认当前账号。
+4. 加载可用题目集。
+5. 选择需要导出的题目集或题型。
+6. 选择合并导出或分别导出模式。
+7. 导出为 `.docx` 文档。
 
-## Configuration
+## 配置说明
 
-Core configuration is defined in [config.py](config.py):
+核心配置定义见 [config.py](config.py)：
 
 - `start_url`
 - `output_dir`
@@ -63,15 +63,15 @@ Core configuration is defined in [config.py](config.py):
 - `temp_dir`
 - `embed_images`
 
-## Build
+## 打包构建
 
-To build the Windows package:
+构建 Windows 可执行版本：
 
 ```powershell
 pwsh .\build\build.ps1 -PythonExe python
 ```
 
-To explicitly provide a Node runtime:
+如需手动指定 Node 运行时：
 
 ```powershell
 pwsh .\build\build.ps1 `
@@ -80,41 +80,41 @@ pwsh .\build\build.ps1 `
   -NodeModulesDir "C:\path\to\node_modules"
 ```
 
-To verify packaging only in CI:
+如果只想在 CI 中验证是否能成功打包：
 
 ```powershell
 pwsh .\build\build.ps1 -PythonExe python -SkipRuntimeCopy
 ```
 
-## Tests
+## 测试
 
 ```powershell
 python -m unittest discover -s tests -v
 ```
 
-If you keep raw PTA HTML snapshots locally for parser regression tests, place them under:
+如果你本地保留了直接从 PTA 页面保存的原始 HTML，可放在以下目录中：
 
 - `private/raw_pta_html/1.html`
 - `private/raw_pta_html/2.html`
 - `private/raw_pta_html/3.html`
 - `private/raw_pta_html/4.html`
 
-These files are intentionally ignored by Git and are not meant to be committed to a public repository.
+这些文件默认会被 Git 忽略，不应提交到公开仓库。
 
-## Privacy Notes
+## 隐私说明
 
-- This project does not bypass PTA login. It only reuses a login session that you complete in your own browser environment.
-- Browser profile data and session data should stay local and must not be committed.
-- Raw HTML saved directly from PTA pages may contain sensitive information such as real names, course titles, or problem set identifiers. Keep such files only in ignored local directories like `private/raw_pta_html/`.
-- Use this tool only for courses, problem sets, and accounts you are authorized to access.
+- 本项目不会绕过 PTA 登录，只会复用你在本机浏览器中完成的真实登录状态。
+- 浏览器配置目录与会话数据应仅保留在本地，不能提交到版本库。
+- 直接从 PTA 页面保存的原始 HTML 可能包含真实姓名、课程名称、题目集编号等敏感信息，应只保存在本地忽略目录中。
+- 请仅在你有权限访问的课程、题目集和账号环境中使用本工具。
 
-## Limitations
+## 已知限制
 
-- Currently developed and tested for Windows only
-- Relies on the current PTA page structure
-- May require parser updates if Pintia changes its frontend significantly
-- Image downloads may fail because of network limits, timeouts, or source availability; export will still continue with warnings
+- 当前仅面向 Windows 开发与测试
+- 依赖 PTA 当前页面结构
+- 若 Pintia 前端页面结构发生较大变化，解析逻辑可能需要调整
+- 图片下载可能因网络限制、超时或源站问题失败，但导出流程会继续并给出告警
 
-## Changelog
+## 更新记录
 
-See [CHANGELOG.md](CHANGELOG.md).
+详见 [CHANGELOG.md](CHANGELOG.md)。
