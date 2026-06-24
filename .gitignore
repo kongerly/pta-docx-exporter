@@ -2,14 +2,19 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# 构建与临时产物
 dist/
 build/pta_docx_exporter/
 build/output/
 runtime/
-.pytest_cache/
-.appdata/
 tmp_docx/
-PTADocxExporter/
+.pytest_cache/
+
+# 本地浏览器会话与应用缓存
+.appdata/
+
+# 本地私有协作文件与 PTA 原始页面样本
 AGENTS.md
 1234html/
-private/raw_pta_html/
+private/
