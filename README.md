@@ -86,21 +86,6 @@ pwsh .\build\build.ps1 `
 pwsh .\build\build.ps1 -PythonExe python -SkipRuntimeCopy
 ```
 
-## 测试
-
-```powershell
-python -m unittest discover -s tests -v
-```
-
-如果你本地保留了直接从 PTA 页面保存的原始 HTML，可放在以下目录中：
-
-- `private/raw_pta_html/1.html`
-- `private/raw_pta_html/2.html`
-- `private/raw_pta_html/3.html`
-- `private/raw_pta_html/4.html`
-
-这些文件默认会被 Git 忽略，不应提交到公开仓库。
-
 ## 隐私说明
 
 - 本项目不会绕过 PTA 登录，只会复用你在本机浏览器中完成的真实登录状态。
