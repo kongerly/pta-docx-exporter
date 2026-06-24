@@ -86,6 +86,7 @@ powershell -ExecutionPolicy Bypass -File .\build\build.ps1 -PythonExe python -Sk
 ```
 
 构建脚本会用中文提示当前构建版本，并在缺少 `node.exe`、`node_modules` 或 Playwright 依赖时给出区分说明。
+构建完成后，脚本还会自动校验 `dist/` 中的关键产物是否存在，减少“看起来成功、实际缺文件”的情况。
 当前版本已在本地完成完整便携版构建验证，并确认产物可最小启动。
 
 ## 隐私说明

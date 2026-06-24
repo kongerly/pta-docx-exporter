@@ -65,6 +65,19 @@ function Test-PlaywrightNodeModules {
     return $null -ne $package
 }
 
+function Assert-RequiredPath {
+    param(
+        [string]$PathText,
+        [string]$Label
+    )
+
+    if (-not (Test-Path -LiteralPath $PathText)) {
+        throw ("构建产物缺失：{0} -> {1}" -f $Label, $PathText)
+    }
+
+    Write-Host ("已验证产物：{0} -> {1}" -f $Label, $PathText)
+}
+
 Write-Host "正在安装 Python 依赖..."
 & $PythonExe -m pip install -r (Join-Path $ProjectRoot "requirements.txt")
 if ($LASTEXITCODE -ne 0) {
@@ -131,6 +144,19 @@ try {
 finally {
     Pop-Location
 }
+
+$DistRoot = Join-Path $ProjectRoot "dist\PTADocxExporter"
+$InternalRoot = Join-Path $DistRoot "_internal"
+
+Write-Host "正在校验构建产物..."
+Assert-RequiredPath (Join-Path $DistRoot "PTADocxExporter.exe") "便携版主程序"
+Assert-RequiredPath (Join-Path $InternalRoot "pta\browser_service.js") "浏览器桥脚本"
+
+if (-not $SkipRuntimeCopy) {
+    Assert-RequiredPath (Join-Path $InternalRoot "runtime\node\node.exe") "便携版 Node 运行时"
+    Assert-RequiredPath (Join-Path $InternalRoot "runtime\node\node_modules\playwright") "便携版 Playwright 依赖"
+}
+
 Write-Host "构建完成。"
 
 
