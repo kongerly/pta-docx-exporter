@@ -341,13 +341,28 @@ class UiText:
         parsed_total: int,
         expected_total: int,
         warning_count: int,
+        failed_total: int = 0,
+        missing_problem_warning_count: int = 0,
+        page_warning_count: int = 0,
+        image_warning_count: int = 0,
+        content_warning_count: int = 0,
     ) -> str:
         effective_total = expected_total or parsed_total
-        return (
+        summary = (
             f"导出摘要：{exported_count} 个导出项，"
             f"{parsed_total}/{effective_total} 题成功，"
+            f"缺失 {failed_total} 题，"
             f"{warning_count} 条警告"
         )
+        category_lines = UiText.export_warning_category_lines(
+            missing_problem_warning_count,
+            page_warning_count,
+            image_warning_count,
+            content_warning_count,
+        )
+        if category_lines:
+            summary += "（" + "，".join(category_lines[:3]) + "）"
+        return summary
 
     @staticmethod
     def export_result_summary_lines(
